@@ -1,0 +1,21 @@
+name: Windows build
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npm run dist
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: LAN-Desktop-Stream-Windows
+          path: dist/*Setup.exe
