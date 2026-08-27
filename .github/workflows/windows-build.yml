@@ -1,8 +1,10 @@
 name: Windows build
+
 on:
   workflow_dispatch:
   push:
     branches: [main]
+
 jobs:
   build:
     runs-on: windows-2022
@@ -10,10 +12,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: 22
       - run: npm install
       - run: npm run dist
+      - name: Verify installer
+        shell: pwsh
+        run: |
+          $file = Get-ChildItem -Path dist -Filter '*Setup.exe' | Select-Object -First 1
+          if (-not $file) { throw 'Installer was not produced.' }
+          Write-Host "Installer: $($file.FullName)"
+          Write-Host "Size: $($file.Length) bytes"
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
