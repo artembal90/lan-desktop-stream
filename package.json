@@ -10,6 +10,7 @@
     "appId":"com.example.landeskstream",
     "productName":"LAN Desktop Stream",
     "files":["src/**/*","web/**/*","package.json"],
+    "extraResources":[{"from":"app_icon_monitor.ico","to":"app_icon_monitor.ico"}],
     "win":{
       "target":"nsis",
       "icon":"app_icon_monitor.ico",
