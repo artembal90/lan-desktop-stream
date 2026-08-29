@@ -63,6 +63,15 @@ Run the same controlled test after implementation:
 7. Restart the source and repeat the two-receiver test to detect state/initialization regressions.
 8. Keep the test running long enough to observe periodic statistics logging and confirm that values continue updating.
 
+#### 1.8.2e — Source selector regression hardening
+- Keep the source selector usable immediately after application startup.
+- Retry source enumeration when the first `desktopCapturer.getSources()` request returns no sources or transiently fails.
+- Provide a manual `Обновить` action so the user can re-enumerate screens/windows without restarting the application.
+- Preserve the currently selected source when the list is refreshed when possible.
+- Provide deterministic fallback labels (`Экран N` / `Окно N`) if Windows/Electron returns a source without a usable display name.
+- Do not silently leave an empty selector after a transient enumeration failure; show an explicit status and recovery action.
+- Runtime acceptance: at least one real screen must be selectable after a cold start and after application restart.
+
 ### 1.8.3 — Connection quality metrics
 For each receiver, expose where available:
 - RTT/latency;
@@ -144,6 +153,13 @@ Diagnostics must allow us to determine whether overload is caused by:
 - [x] Statistics-cycle duration is captured without adding another `getStats()` collection.
 - [ ] Compare one- and two-receiver CPU load on the Windows build.
 
+### 1.8.2e — Source selector regression hardening
+- [x] Added retry-based source re-enumeration in the host UI.
+- [x] Added manual `Обновить` action.
+- [x] Added fallback source labels when Electron returns an empty name.
+- [x] Added explicit source-list status/recovery feedback.
+- [ ] Runtime acceptance still requires confirming that at least one real screen is selectable after cold start and restart.
+
 ## 1.8 implementation notes — 2026-08-29
 - 1.8.1 receiver bitrate and multi-receiver statistics display were verified in the user's #76 build test.
 - Prepared 1.8.2 by hardening the statistics pipeline before the effective-FPS implementation is considered complete.
@@ -155,6 +171,7 @@ Diagnostics must allow us to determine whether overload is caused by:
 - Test evidence from the #79 two-receiver run showed correct individual receiver statistics but a mismatch between the displayed receiver TX values and `Total TX`, while Windows Task Manager showed a separate process/network load value. This is the basis for 1.8.2a aggregate-statistics validation.
 - Test logs from the same runs contained repeated `[object Object]` records instead of structured diagnostic data. This is the basis for 1.8.2b logging normalization.
 - CPU load increased after restart in the observed two-receiver test; this is recorded as a verification target for 1.8.2c rather than an assumed `getStats()` cause.
+- The #83 Windows build reproduced a source selector regression on the user's machine: the `Экран / окно` selector appeared empty after startup. The regression is now covered by 1.8.2e with retries, manual refresh and fallback labels.
 
 ## Acceptance criteria for Stage 1.8
 - Diagnostics show live bitrate for each connected receiver.
@@ -181,5 +198,6 @@ Diagnostics must allow us to determine whether overload is caused by:
 - Reconnect and adaptive events identify the affected receiver and remain readable in logs.
 - Statistics collection remains non-overlapping and does not add unnecessary `getStats()` calls.
 - CPU impact is measured with one and two receivers; any further CPU optimization is based on those measurements.
+- The source selector remains populated after cold start and application restart, with a manual recovery action if source enumeration is temporarily unavailable.
 - Two receivers can stream simultaneously without restarts, repeated reconnect storms, or degradation of the healthy receiver.
 - CI syntax/tests/build remain green.
