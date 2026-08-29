@@ -38,7 +38,6 @@
 - [ ] Diagnostics screen.
 
 ### 5. Рефакторинг архитектуры 🟡
-
 - [ ] Разделить `src/main.js` на логические модули.
 - [ ] Вынести HTTP server.
 - [ ] Вынести signaling.
@@ -55,7 +54,6 @@
 - [ ] Не изменять внешнее поведение без необходимости.
 
 ### 6. Безопасность 🟡
-
 - [ ] Проверить PIN.
 - [ ] Проверить Origin.
 - [ ] Валидировать WebSocket messages.
@@ -65,7 +63,6 @@
 - [ ] Добавить защиту от некорректных запросов.
 
 ### 7. CI/CD и автоматическое тестирование 🟢
-
 - [ ] Добавить lint.
 - [ ] Добавить unit tests.
 - [ ] Добавить server smoke test.
@@ -78,7 +75,6 @@
 - [ ] Загружать EXE как artifact.
 
 ### 8. Финальная сборка и выпуск EXE 🟢
-
 - [ ] Финальный Windows build.
 - [ ] Проверить installer.
 - [ ] Проверить иконку.
@@ -93,26 +89,59 @@
 - [ ] Провести финальный smoke test.
 - [ ] Опубликовать финальный EXE artifact.
 
-## 1.8.2e — Startup/source selection regression hardening
-- [x] Подготовлена быстрая выдача экранов и отдельная полная выдача экранов/окон через preload API.
-- [ ] Кэш выбранного источника в `src/main.js`.
-- [ ] Убрать повторную полную `desktopCapturer.getSources()` при Start/capture.
-- [ ] Сохранять выбранный источник при асинхронном обновлении списка.
+## 1.8.2 — Unified statistics, logging and startup/source discovery patch
 
-## 1.8.2f — Default startup parameters
-- [x] UI по умолчанию: `1280x720`.
-- [x] UI по умолчанию: `30 FPS`.
-- [ ] Default config в `src/main.js`: `1280x720`, `30 FPS`.
-- [x] Сохранение существующих пользовательских настроек.
+### 1.8.2a — Statistics consistency / aggregate TX
+- [x] Aggregate TX is calculated from active receivers' current measured bitrate values.
+- [x] `Receivers TX sum` and `Aggregate TX` use the same active receiver set/statistics cycle.
+- [x] `Total TX` UI uses the same aggregate calculation.
+- [x] Receiver/PeerConnection count is available in diagnostic data.
+- [x] No additional `getStats()` call is used solely for aggregation.
+- [ ] Runtime two-receiver equality test.
 
-## 1.8.2g — Start button regression validation
-- [ ] Нажатие Start реально запускает трансляцию.
-- [ ] URL появляется после запуска.
-- [ ] Источник не переопределяется повторной медленной enumeration.
-- [ ] Один receiver.
-- [ ] Два receiver.
-- [ ] Повторный запуск после Stop.
-- [ ] Повторная проверка после перезапуска приложения.
+### 1.8.2b — Diagnostic logging normalization
+- [x] Structured diagnostic data is serialized instead of becoming `[object Object]`.
+- [x] Periodic statistics include receiver ID, TX, FPS, RTT, jitter, loss and adaptive state.
+- [x] Aggregate TX and receiver TX sum are logged together.
+- [x] Statistics-cycle duration is logged for CPU overhead analysis.
+- [ ] Runtime verification of exported logs.
+
+### 1.8.2c — CPU impact verification
+- [x] Statistics-cycle timing added without an additional stats collection.
+- [ ] Measure CPU with one receiver.
+- [ ] Measure CPU with two receivers.
+- [ ] Decide on further CPU optimization from measurements.
+
+### 1.8.2d — Validation
+- [ ] One-receiver controlled test.
+- [ ] Two-receiver controlled test without source restart.
+- [ ] Verify aggregate/per-receiver TX consistency.
+- [ ] Verify readable periodic logs.
+- [ ] Verify reconnect behavior.
+- [ ] Repeat after application restart.
+
+### 1.8.2e — Startup/source selector hardening
+- [x] Screen enumeration is separated from window enumeration.
+- [x] Selected source is cached in `src/main.js`.
+- [x] Display-media capture reuses the cached selected source where available.
+- [x] Window enumeration runs after the initial screen list is available.
+- [ ] Runtime confirmation of fast cold start on Windows.
+- [ ] Runtime confirmation of source selector after restart.
+
+### 1.8.2f — Default startup parameters
+- [x] UI default resolution: `1280x720`.
+- [x] UI default FPS: `30`.
+- [x] Default config in `src/main.js`: `1280x720`, `30 FPS`.
+- [x] Existing saved user configuration is preserved.
+
+### 1.8.2g — Start button regression validation
+- [ ] Start launches the stream.
+- [ ] URL appears after Start.
+- [ ] Selected source is not replaced by a second slow enumeration.
+- [ ] One receiver.
+- [ ] Two receivers.
+- [ ] Repeat Start after Stop.
+- [ ] Repeat after application restart.
 
 ## Журнал выполнения
 
@@ -122,7 +151,7 @@
 | 2026-08-29 | Этап 1 | WebRTC `maxBitrate`, общий TX budget, распределение по receiver, adaptive bitrate/FPS, сетевые метрики и профили качества | Реализовано; требуется реальное тестирование на Windows/LAN |
 | 2026-08-29 | Этап 1 | Commit `4c2ab73f68c57e46d9e940cb8c5f0d478e3ccb3f` | Код изменений загружен в `main`; workflow запускается push в `main` |
 | 2026-08-29 | Этап 1.8.2-prep | Подготовка statistics pipeline: interval packet loss, effective FPS fallback, reuse latest stats, защита от overlapping `getStats`, lightweight periodic logging | Документация обновлена; кодовый патч подготовлен к внесению в текущий `web/host/app.js` |
-| 2026-08-29 | Этап 1.8.2e/f/g | Зафиксирована регрессия: Start не запускает трансляцию, а enumeration источников занимает до минуты; добавлены требования к кэшированию источника, быстрой выдаче экранов и стартовым параметрам 1280x720/30 FPS | В работе; runtime-проверка обязательна |
+| 2026-08-29 | Этап 1.8.2 | Unified patch: statistics consistency, structured diagnostics, CPU-cycle timing, cached source selection, fast screen enumeration, background window enumeration, 1280x720/30 FPS defaults | Код объединён без IPC monkey-patching; требуется CI и runtime validation |
 
 ## Правило работы с планом
 
