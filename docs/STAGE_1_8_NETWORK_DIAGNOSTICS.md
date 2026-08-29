@@ -11,6 +11,17 @@ Make network load measurable per receiver so future optimization is based on act
 ### 1.8.2 — Actual receiver FPS
 - Display effective measured FPS for every receiver.
 - Distinguish configured FPS from effective FPS.
+- Measure FPS from `outbound-rtp.framesPerSecond` when available.
+- Fall back to `framesSent` divided by the elapsed statistics interval when `framesPerSecond` is unavailable or zero.
+- Keep configured FPS and effective measured FPS as separate values.
+
+### 1.8.2-prep — Statistics pipeline hardening
+- Calculate packet-loss degradation from deltas between consecutive `getStats()` samples instead of relying only on the cumulative `packetsLost` counter.
+- Calculate packet-loss rate from packets lost during the current interval.
+- Reuse the latest per-receiver statistics in the adaptive controller instead of triggering an additional `getStats()` collection for the same cycle.
+- Guard the periodic statistics collector against overlapping and duplicate calls from timers and WebRTC events.
+- Keep statistics polling lightweight so additional receivers do not multiply unnecessary diagnostics work.
+- Log periodic per-receiver bitrate/FPS and aggregate bitrate at a lightweight interval rather than on every statistics tick.
 
 ### 1.8.3 — Connection quality metrics
 For each receiver, expose where available:
@@ -71,6 +82,15 @@ Diagnostics must allow us to determine whether overload is caused by:
 - Preserve logical receiver identity during temporary disconnects.
 - Prevent a reconnect of one receiver from affecting another receiver.
 - Old-session cleanup must never remove the replacement or another active receiver.
+
+## 1.8 implementation notes — 2026-08-29
+- Prepared 1.8.2 by hardening the statistics pipeline.
+- Effective receiver FPS is measured from `outbound-rtp.framesPerSecond` when available, with a `framesSent`/time-interval fallback.
+- Packet loss used by adaptive control is interval-based (`lossDelta`/`lossRate`) rather than the cumulative counter alone.
+- Adaptive control reuses the latest statistics sample and does not perform an extra `getStats()` collection for the same cycle.
+- Host statistics collection is guarded against overlapping/duplicate calls.
+- Lightweight periodic statistics logging records per-receiver bitrate/FPS and aggregate TX without logging every tick.
+- These changes are intended to reduce diagnostic overhead and provide reliable measurements before the multi-receiver CPU optimization work in Stage 3.
 
 ## Acceptance criteria for Stage 1.8
 - Diagnostics show live bitrate for each connected receiver.
