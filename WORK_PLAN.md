@@ -84,6 +84,12 @@
 - [x] Показывать TX bitrate каждого receiver в диагностических данных.
 - [x] Показывать состояние adaptive controller.
 - [x] Показывать RTT, jitter и packet loss для receiver.
+- [x] Показывать фактический/effective FPS каждого receiver отдельно от выбранного FPS.
+- [x] Для effective FPS использовать `framesPerSecond`, а при отсутствии/нулевом значении — расчёт по `framesSent` за интервал.
+- [x] Считать packet loss для adaptive по интервалу (`lossDelta`/`lossRate`), а не только по накопительному счётчику.
+- [x] Не выполнять дополнительный `getStats()` в adaptive controller, если актуальная выборка уже собрана.
+- [x] Защитить сбор статистики от перекрывающихся/дублирующих вызовов.
+- [x] Добавить облегчённое периодическое логирование per-receiver bitrate/FPS и aggregate TX.
 
 ### 1.9 Тесты этапа 1
 
@@ -277,6 +283,7 @@
 | 2026-08-29 | Планирование | Зафиксирован порядок этапов | Готов к этапу 1 |
 | 2026-08-29 | Этап 1 | WebRTC `maxBitrate`, общий TX budget, распределение по receiver, adaptive bitrate/FPS, сетевые метрики и профили качества | Реализовано; требуется реальное тестирование на Windows/LAN |
 | 2026-08-29 | Этап 1 | Commit `4c2ab73f68c57e46d9e940cb8c5f0d478e3ccb3f` | Код изменений загружен в `main`; workflow запускается push в `main` |
+| 2026-08-29 | Этап 1.8.2-prep | Подготовка statistics pipeline: interval packet loss, effective FPS fallback, reuse latest stats, защита от overlapping `getStats`, lightweight periodic logging | Документация обновлена; кодовый патч подготовлен к внесению в текущий `web/host/app.js` |
 
 ## Правило работы с планом
 
