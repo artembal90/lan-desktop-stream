@@ -1,4 +1,4 @@
-// 1.8.2c runtime hardening + 1.8.5 exact-resolution protection.
+// 1.8.2c runtime hardening + 1.8.5 exact-resolution lifecycle.
 (function(){
   const originalStart=window.start;
   const originalStop=window.stop;
@@ -27,8 +27,21 @@
   window.start=async function(){stopping=false;return originalStart()};
   window.stop=async function(){if(stopping)return;await originalStop();stopping=false};
   $('start').onclick=()=>window.start();$('stop').onclick=()=>window.stop();
+  async function applyResolutionChange(){
+    try{
+      await api.saveConfig(cfg());
+      const running=!!$('state')?.dataset?.running;
+      if(running){
+        api.log?.('INFO','Resolution change: restarting capture pipeline',{resolution:cfg().resolution});
+        await window.stop();
+        await window.start();
+      }else{
+        updateStats();
+      }
+    }catch(e){api.log?.('WARN','Resolution change failed',e?.message||String(e))}
+  }
   const resolution=$('r');
-  if(resolution)resolution.addEventListener('change',async()=>{try{await api.saveConfig(cfg());const t=stream?.getVideoTracks?.()[0];if(t)await applyConfiguredConstraints(t);updateStats()}catch(e){api.log?.('WARN','Resolution change failed',e?.message||String(e))}});
+  if(resolution)resolution.addEventListener('change',applyResolutionChange);
   const fps=$('f');
   if(fps)fps.addEventListener('change',async()=>{try{await api.saveConfig(cfg());const t=stream?.getVideoTracks?.()[0];if(t)await applyConfiguredConstraints(t);updateStats()}catch(e){api.log?.('WARN','FPS change failed',e?.message||String(e))}});
 })();
