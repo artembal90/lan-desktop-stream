@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   getSources:()=>ipcRenderer.invoke('sources'),
+  getWindowSources:()=>ipcRenderer.invoke('sources-windows'),
   loadConfig:()=>ipcRenderer.invoke('config-load'),
   saveConfig:c=>ipcRenderer.invoke('config-save',c),
   selectSource:id=>ipcRenderer.invoke('select-source',id),
