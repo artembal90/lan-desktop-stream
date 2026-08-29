@@ -35,6 +35,6 @@ ipcMain.handle=(channel,handler)=>{
       return result;
     });
   }
-  return originalHandle(channel,handle);
+  return originalHandle(channel,handler);
 };
 require('./main-original');
