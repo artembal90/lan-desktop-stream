@@ -15,13 +15,53 @@ Make network load measurable per receiver so future optimization is based on act
 - Fall back to `framesSent` divided by the elapsed statistics interval when `framesPerSecond` is unavailable or zero.
 - Keep configured FPS and effective measured FPS as separate values.
 
-### 1.8.2-prep — Statistics pipeline hardening
-- Calculate packet-loss degradation from deltas between consecutive `getStats()` samples instead of relying only on the cumulative `packetsLost` counter.
-- Calculate packet-loss rate from packets lost during the current interval.
-- Reuse the latest per-receiver statistics in the adaptive controller instead of triggering an additional `getStats()` collection for the same cycle.
-- Guard the periodic statistics collector against overlapping and duplicate calls from timers and WebRTC events.
-- Keep statistics polling lightweight so additional receivers do not multiply unnecessary diagnostics work.
-- Log periodic per-receiver bitrate/FPS and aggregate bitrate at a lightweight interval rather than on every statistics tick.
+### 1.8.2 — Statistics consistency and diagnostics hardening
+
+#### 1.8.2a — Statistics consistency / aggregate TX
+- Make `Total TX` equal to the sum of the current measured bitrates of all active receivers.
+- Keep per-receiver measured TX and aggregate TX based on the same statistics sample/cycle.
+- Detect and prevent divergence between the per-receiver values and `Total TX`.
+- Add explicit diagnostic fields for:
+  - per-receiver TX;
+  - sum of receiver TX (`Receivers TX sum`);
+  - aggregate TX (`Aggregate TX`);
+  - number of active PeerConnections/receivers.
+- Do not use the configured source bitrate as a substitute for measured aggregate TX.
+- Preserve the existing lightweight polling model and avoid additional `getStats()` calls solely for aggregation.
+
+#### 1.8.2b — Diagnostic logging normalization
+- Eliminate `[object Object]` entries from application diagnostics/log files.
+- Serialize structured diagnostic objects into readable, stable log records.
+- Log periodic per-receiver statistics in a machine- and human-readable form:
+  - receiver ID;
+  - bitrate/TX;
+  - effective FPS;
+  - RTT;
+  - jitter;
+  - packet loss / loss rate;
+  - adaptive state.
+- Log aggregate statistics together with the receiver count and receiver TX sum.
+- Log reconnect and adaptive transitions with their relevant receiver ID and state changes.
+- Keep diagnostic logging lightweight and periodic rather than logging every statistics tick.
+- Ensure errors in statistics collection are logged with useful context instead of stringified objects.
+
+#### 1.8.2c — CPU impact verification
+- Treat CPU load as a measured acceptance criterion, not as a symptom to optimize blindly.
+- Separate measurement of statistics/diagnostics overhead from WebRTC capture/encoding overhead as far as practical.
+- Verify that the statistics hardening does not introduce additional CPU load when a second receiver is connected.
+- Record CPU observations for one receiver and two receivers under comparable conditions.
+- Only after statistics correctness is established, decide whether a dedicated CPU optimization patch is required.
+
+#### 1.8.2d — Validation scenario
+Run the same controlled test after implementation:
+1. Start the source and connect one receiver.
+2. Record CPU, measured TX, effective FPS, RTT, jitter and loss.
+3. Connect a second receiver without restarting the source.
+4. Record the same metrics for both receivers.
+5. Verify `Receivers TX sum == Aggregate TX == Total TX` within the expected rounding tolerance.
+6. Verify logs contain readable structured statistics and no `[object Object]` records.
+7. Restart the source and repeat the two-receiver test to detect state/initialization regressions.
+8. Keep the test running long enough to observe periodic statistics logging and confirm that values continue updating.
 
 ### 1.8.3 — Connection quality metrics
 For each receiver, expose where available:
@@ -91,7 +131,9 @@ Diagnostics must allow us to determine whether overload is caused by:
 - Adaptive control reuses the latest per-receiver statistics sample and skips a peer when no current sample exists, avoiding an extra `getStats()` call in the adaptive cycle.
 - Host statistics collection is guarded against overlapping/duplicate calls with an in-flight lock.
 - Periodic per-receiver bitrate/FPS/loss-rate and aggregate TX are logged at a lightweight 10-second interval rather than on every statistics tick.
-- These changes are intended to reduce diagnostic overhead and provide reliable measurements before the multi-receiver CPU optimization work in Stage 3.
+- Test evidence from the #79 two-receiver run showed correct individual receiver statistics but a mismatch between the displayed receiver TX values and `Total TX`, while Windows Task Manager showed a separate process/network load value. This is the basis for 1.8.2a aggregate-statistics validation.
+- Test logs from the same runs contained repeated `[object Object]` records instead of structured diagnostic data. This is the basis for 1.8.2b logging normalization.
+- CPU load increased after restart in the observed two-receiver test; this is recorded as a verification target for 1.8.2c rather than an assumed `getStats()` cause.
 
 ## Acceptance criteria for Stage 1.8
 - Diagnostics show live bitrate for each connected receiver.
@@ -108,4 +150,15 @@ Diagnostics must allow us to determine whether overload is caused by:
 - Per-receiver statistics are visible in the host diagnostics UI.
 - `Total TX` reflects the sum of measured receiver traffic.
 - Log timestamps match the local Windows PC clock and include milliseconds.
+- CI syntax/tests/build remain green.
+
+## Acceptance criteria for Stage 1.8.2
+- `Total TX`, `Aggregate TX` and `Receivers TX sum` are consistent within expected rounding tolerance.
+- The aggregate value is derived from current measured per-receiver statistics.
+- No `[object Object]` entries remain in the relevant diagnostic logs.
+- Periodic logs contain readable per-receiver bitrate/FPS/RTT/jitter/loss/adaptive information.
+- Reconnect and adaptive events identify the affected receiver and remain readable in logs.
+- Statistics collection remains non-overlapping and does not add unnecessary `getStats()` calls.
+- CPU impact is measured with one and two receivers; any further CPU optimization is based on those measurements.
+- Two receivers can stream simultaneously without restarts, repeated reconnect storms, or degradation of the healthy receiver.
 - CI syntax/tests/build remain green.
