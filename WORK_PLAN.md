@@ -174,6 +174,18 @@
 - [ ] Runtime verification of generated log.
 - [ ] Verify exported log remains UTF-8 and readable.
 
+### 1.8.4 — CPU optimization: fixed-resolution capture path
+- [x] Identified the per-frame 2D canvas normalization as a potential CPU-heavy path in the fixed-resolution pipeline.
+- [x] Native same-aspect downscaling is now preferred for sources that are at least as large as the selected output.
+- [x] Per-receiver encoder-side `scaleResolutionDownBy` is used instead of copying every frame through canvas on the common 16:9 downscale path.
+- [x] Canvas normalization remains as a correctness fallback for non-matching aspect ratios and upscaling.
+- [ ] Measure CPU with one receiver against baseline.
+- [ ] Measure CPU with two receivers against baseline.
+- [ ] Verify output dimensions at 1280×720, 1920×1080 and 2560×1440.
+- [ ] Verify preview, Start/Stop and reconnect behavior.
+- [ ] CI Windows build and runtime verification.
+- [ ] Keep or revert based on measured CPU/quality results.
+
 ## Журнал выполнения
 
 | Дата | Этап | Изменение | Результат |
@@ -186,6 +198,7 @@
 | 2026-08-29 | Этап 1.8.2h | Исправлен критический регресс запуска: `app.whenReady().then(async()=>...)` | Commit `8424357a6f3557581da6ae674f41c469a12f5067`; требуется CI и runtime validation |
 | 2026-08-29 | Этап 1.8.2i | Добавлена нормализация видеопотока через canvas с фиксированным размером выбранного выхода | Код внесён; требуется CI и Windows runtime validation |
 | 2026-08-29 | Этап 1.8.3 | Добавлен bootstrap-форматтер читаемого main-process лога; вынесен logger utility | Требуется CI и runtime проверка лога |
+| 2026-08-29 | Этап 1.8.4 | Переведён типовой same-aspect downscale с per-frame canvas на encoder-side WebRTC scaling; canvas оставлен fallback | Commit `31b2cfc95404f468965ca781ed1de663baa74d38`; требуется CPU measurement и Windows runtime validation |
 
 ## Правило работы с планом
 
