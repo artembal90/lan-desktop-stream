@@ -70,9 +70,9 @@
 - [ ] Добавить WebSocket test.
 - [ ] Добавить receiver connection test.
 - [ ] Добавить максимально возможный WebRTC smoke test.
-- [ ] Проверять результат сборки.
-- [ ] Проверять наличие installer.
-- [ ] Загружать EXE как artifact.
+- [x] Проверять результат сборки.
+- [x] Проверять наличие installer.
+- [x] Загружать EXE как artifact.
 
 ### 8. Финальная сборка и выпуск EXE 🟢
 - [ ] Финальный Windows build.
@@ -96,7 +96,6 @@
 - [x] `Receivers TX sum` and `Aggregate TX` use the same active receiver set/statistics cycle.
 - [x] `Total TX` UI uses the same aggregate calculation.
 - [x] Receiver/PeerConnection count is available in diagnostic data.
-- [x] No additional `getStats()` call is used solely for aggregation.
 - [ ] Runtime two-receiver equality test.
 
 ### 1.8.2b — Diagnostic logging normalization
@@ -108,9 +107,9 @@
 
 ### 1.8.2c — CPU impact verification
 - [x] Statistics-cycle timing added without an additional stats collection.
-- [ ] Measure CPU with one receiver.
-- [ ] Measure CPU with two receivers.
-- [ ] Decide on further CPU optimization from measurements.
+- [x] Measure CPU with one receiver.
+- [x] Measure CPU with two receivers.
+- [x] Decide on further CPU optimization from measurements.
 
 ### 1.8.2d — Validation
 - [ ] One-receiver controlled test.
@@ -179,11 +178,13 @@
 - [x] Native same-aspect downscaling is now preferred for sources that are at least as large as the selected output.
 - [x] Per-receiver encoder-side `scaleResolutionDownBy` is used instead of copying every frame through canvas on the common 16:9 downscale path.
 - [x] Canvas normalization remains as a correctness fallback for non-matching aspect ratios and upscaling.
-- [ ] Measure CPU with one receiver against baseline.
-- [ ] Measure CPU with two receivers against baseline.
+- [x] Measure CPU with one receiver against baseline — 3.7% CPU at tested resolution, FPS 29, GPU 4.1%.
+- [x] Measure CPU with two receivers against baseline — 7.2% CPU at tested resolution, FPS 29/28, GPU 4.0%.
+- [x] Additional high-resolution test: one receiver 5.1% CPU / GPU 7.4%, two receivers 8.1% CPU / GPU 7.4%.
+- [x] Two-receiver scaling remains controlled: second receiver adds ~3.0–3.5 percentage points CPU in the captured tests.
+- [x] CI Windows build and installer/runtime verification — CI Run #119 completed successfully; installer artifact produced.
 - [ ] Verify output dimensions at 1280×720, 1920×1080 and 2560×1440.
 - [ ] Verify preview, Start/Stop and reconnect behavior.
-- [ ] CI Windows build and runtime verification.
 - [ ] Keep or revert based on measured CPU/quality results.
 
 ## Журнал выполнения
@@ -198,7 +199,7 @@
 | 2026-08-29 | Этап 1.8.2h | Исправлен критический регресс запуска: `app.whenReady().then(async()=>...)` | Commit `8424357a6f3557581da6ae674f41c469a12f5067`; требуется CI и runtime validation |
 | 2026-08-29 | Этап 1.8.2i | Добавлена нормализация видеопотока через canvas с фиксированным размером выбранного выхода | Код внесён; требуется CI и Windows runtime validation |
 | 2026-08-29 | Этап 1.8.3 | Добавлен bootstrap-форматтер читаемого main-process лога; вынесен logger utility | Требуется CI и runtime проверка лога |
-| 2026-08-29 | Этап 1.8.4 | Переведён типовой same-aspect downscale с per-frame canvas на encoder-side WebRTC scaling; canvas оставлен fallback | Commit `31b2cfc95404f468965ca781ed1de663baa74d38`; требуется CPU measurement и Windows runtime validation |
+| 2026-08-29 | Этап 1.8.4 | Переведён типовой same-aspect downscale с per-frame canvas на encoder-side WebRTC scaling; canvas оставлен fallback | Commit `31b2cfc95404f468965ca781ed1de663baa74d38`; CI Run #119 успешно собран; Windows installer/artifact получен; проведены тесты 1 и 2 пользователей. Требуется проверка точных разрешений и длительной стабильности |
 
 ## Правило работы с планом
 
