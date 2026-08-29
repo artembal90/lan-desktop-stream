@@ -172,6 +172,9 @@ Diagnostics must allow us to determine whether overload is caused by:
 - Test logs from the same runs contained repeated `[object Object]` records instead of structured diagnostic data. This is the basis for 1.8.2b logging normalization.
 - CPU load increased after restart in the observed two-receiver test; this is recorded as a verification target for 1.8.2c rather than an assumed `getStats()` cause.
 - The #83 Windows build reproduced a source selector regression on the user's machine: the `Экран / окно` selector appeared empty after startup. The regression is now covered by 1.8.2e with retries, manual refresh and fallback labels.
+- Unified 1.8.2 patch prepared from the clean repository: aggregate TX uses the same per-receiver statistics cycle, structured diagnostic logging includes receiver/aggregate metrics and statistics-cycle duration, and source discovery is split into fast screen enumeration plus background window enumeration.
+- Source selection no longer monkey-patches IPC or `desktopCapturer`; selected sources are cached and reused by the display-media handler.
+- New installations default to 1280×720 at 30 FPS; existing saved configuration remains unchanged.
 
 ## Acceptance criteria for Stage 1.8
 - Diagnostics show live bitrate for each connected receiver.
