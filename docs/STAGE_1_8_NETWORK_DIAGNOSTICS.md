@@ -84,12 +84,13 @@ Diagnostics must allow us to determine whether overload is caused by:
 - Old-session cleanup must never remove the replacement or another active receiver.
 
 ## 1.8 implementation notes — 2026-08-29
-- Prepared 1.8.2 by hardening the statistics pipeline.
+- 1.8.1 receiver bitrate and multi-receiver statistics display were verified in the user's #76 build test.
+- Prepared 1.8.2 by hardening the statistics pipeline before the effective-FPS implementation is considered complete.
 - Effective receiver FPS is measured from `outbound-rtp.framesPerSecond` when available, with a `framesSent`/time-interval fallback.
-- Packet loss used by adaptive control is interval-based (`lossDelta`/`lossRate`) rather than the cumulative counter alone.
-- Adaptive control reuses the latest statistics sample and does not perform an extra `getStats()` collection for the same cycle.
-- Host statistics collection is guarded against overlapping/duplicate calls.
-- Lightweight periodic statistics logging records per-receiver bitrate/FPS and aggregate TX without logging every tick.
+- Packet-loss degradation is calculated from interval deltas of cumulative counters; an interval `lossRate` is also calculated when receiver packet counters are available.
+- Adaptive control reuses the latest per-receiver statistics sample and skips a peer when no current sample exists, avoiding an extra `getStats()` call in the adaptive cycle.
+- Host statistics collection is guarded against overlapping/duplicate calls with an in-flight lock.
+- Periodic per-receiver bitrate/FPS/loss-rate and aggregate TX are logged at a lightweight 10-second interval rather than on every statistics tick.
 - These changes are intended to reduce diagnostic overhead and provide reliable measurements before the multi-receiver CPU optimization work in Stage 3.
 
 ## Acceptance criteria for Stage 1.8
