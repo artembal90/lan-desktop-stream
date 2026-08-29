@@ -150,6 +150,19 @@
 - [ ] CI build after startup fix.
 - [ ] Runtime installation/start verification after startup fix.
 
+### 1.8.2i — Fixed output resolution pipeline
+- [x] Identified root cause: `getDisplayMedia()` width/height constraints are capture preferences and do not guarantee the exact encoded frame size.
+- [x] Added a fixed-size canvas normalization layer in the host capture path.
+- [x] Output video track is generated at exactly the selected `width × height`.
+- [x] Source aspect ratio is preserved with letterboxing instead of stretching/cropping the content.
+- [x] Audio tracks are preserved when system audio capture is enabled.
+- [x] Pipeline cleanup stops the original capture source when the normalized stream ends.
+- [ ] Runtime test: 1280×720 with a 16:9 screen.
+- [ ] Runtime test: 1280×720 with a portrait/narrow window source.
+- [ ] Runtime test: switch 1280×720 → 1920×1080 while stopped and verify the next stream.
+- [ ] Runtime test: verify receiver diagnostics report the selected output dimensions.
+- [ ] CI Windows build and installer/runtime verification.
+
 ## Журнал выполнения
 
 | Дата | Этап | Изменение | Результат |
@@ -160,6 +173,7 @@
 | 2026-08-29 | Этап 1.8.2-prep | Подготовка statistics pipeline: interval packet loss, effective FPS fallback, reuse latest stats, защита от overlapping `getStats`, lightweight periodic logging | Документация обновлена; кодовый патч подготовлен к внесению в текущий `web/host/app.js` |
 | 2026-08-29 | Этап 1.8.2 | Unified patch: statistics consistency, structured diagnostics, CPU-cycle timing, cached source selection, fast screen enumeration, background window enumeration, 1280x720/30 FPS defaults | Код объединён без IPC monkey-patching; требуется CI и runtime validation |
 | 2026-08-29 | Этап 1.8.2h | Исправлен критический регресс запуска: `app.whenReady().then(async()=>...)` | Commit `8424357a6f3557581da6ae674f41c469a12f5067`; требуется CI и runtime validation |
+| 2026-08-29 | Этап 1.8.2i | Добавлена нормализация видеопотока через canvas с фиксированным размером выбранного выхода | Код внесён; требуется CI и Windows runtime validation |
 
 ## Правило работы с планом
 
