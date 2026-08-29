@@ -123,6 +123,27 @@ Diagnostics must allow us to determine whether overload is caused by:
 - Prevent a reconnect of one receiver from affecting another receiver.
 - Old-session cleanup must never remove the replacement or another active receiver.
 
+## 1.8.2 implementation status — 2026-08-29
+
+### 1.8.2a — Statistics consistency / aggregate TX
+- [x] Aggregate TX is calculated from the active receivers' latest measured bitrate values.
+- [x] `Receivers TX sum` and `Aggregate TX` are emitted from the same active receiver set.
+- [x] `Total TX` UI uses the same aggregate calculation instead of a separately accumulated value.
+- [x] Diagnostics snapshot exposes receiver count and PeerConnection count.
+- [x] No additional `getStats()` call is introduced solely to calculate the aggregate.
+- [ ] Runtime acceptance still requires a two-receiver test confirming the displayed values remain equal within rounding tolerance.
+
+### 1.8.2b — Diagnostic logging normalization
+- [x] Host-side log serialization now safely handles structured objects, `Error` values and `BigInt`.
+- [x] Periodic statistics logs include receiver ID, TX, effective FPS, RTT, jitter, loss rate, receiver TX sum, aggregate TX and PeerConnection count.
+- [x] Diagnostics snapshots are written as structured readable records.
+- [x] Statistics-cycle duration is recorded to support later CPU/diagnostics overhead analysis.
+- [ ] Runtime acceptance still requires checking exported logs for absence of `[object Object]`.
+
+### 1.8.2c — CPU impact verification
+- [x] Statistics-cycle duration is captured without adding another `getStats()` collection.
+- [ ] Compare one- and two-receiver CPU load on the Windows build.
+
 ## 1.8 implementation notes — 2026-08-29
 - 1.8.1 receiver bitrate and multi-receiver statistics display were verified in the user's #76 build test.
 - Prepared 1.8.2 by hardening the statistics pipeline before the effective-FPS implementation is considered complete.
