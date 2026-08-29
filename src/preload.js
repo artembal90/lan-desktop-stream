@@ -1,10 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   getSources:()=>ipcRenderer.invoke('sources'),
-  getSourcesAll:()=>ipcRenderer.invoke('sources-all'),
   loadConfig:()=>ipcRenderer.invoke('config-load'),
   saveConfig:c=>ipcRenderer.invoke('config-save',c),
-  selectSource:source=>ipcRenderer.invoke('select-source',source),
+  selectSource:id=>ipcRenderer.invoke('select-source',id),
   start:c=>ipcRenderer.invoke('start-server',c),
   stop:()=>ipcRenderer.invoke('stop-server'),
   disconnectReceiver:id=>ipcRenderer.invoke('disconnect-receiver',id),
