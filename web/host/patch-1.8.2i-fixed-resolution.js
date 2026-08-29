@@ -1,7 +1,6 @@
-// 1.8.2i + 1.8.4 CPU optimization.
-// Use native WebRTC scaling only when the captured track already has the
-// exact requested dimensions. Otherwise normalize to the exact requested
-// output size so diagnostics cannot report 1280x698/1920x1040 for 1280x720/1920x1080.
+// 1.8.2i + 1.8.4 + 1.8.5 exact output resolution.
+// Use native WebRTC only when the captured track already has the exact
+// requested dimensions. Otherwise create an exact-size canvas track.
 (function(){
   const mediaDevices=navigator.mediaDevices;
   if(!mediaDevices?.getDisplayMedia)return;
@@ -21,8 +20,6 @@
     const fps=Math.max(15,Number(document.getElementById('f')?.value)||30);
     track.contentHint='detail';
 
-    // Ask Chromium for the requested size first. This keeps the cheap native
-    // path when the platform can actually provide the exact dimensions.
     try{await track.applyConstraints({width:{ideal:w,max:w},height:{ideal:h,max:h},frameRate:{ideal:fps,max:fps}})}catch{}
     const settings=track.getSettings?.()||{};
     const sw=Number(settings.width||0),sh=Number(settings.height||0);
@@ -33,9 +30,9 @@
       return source;
     }
 
-    // Exact output fallback. This is also used for upscaling (e.g. a 1920px
-    // display selected as 2560x1440). The output track itself is always the
-    // selected canvas dimensions.
+    // Exact-size fallback. The generated track is marked so later lifecycle
+    // code does not apply source constraints to it and accidentally change
+    // 1280x720 -> 1280x698 or 1920x1080 -> 1920x1040.
     const video=document.createElement('video');
     video.muted=true;video.playsInline=true;video.srcObject=new MediaStream([track]);
     await video.play().catch(()=>{});
@@ -45,13 +42,13 @@
         video.addEventListener('loadedmetadata',done,{once:true});setTimeout(done,1500);
       });
     }
-    const canvas=document.createElement('canvas');
-    canvas.width=w;canvas.height=h;
+    const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
     const ctx=canvas.getContext('2d',{alpha:false,desynchronized:true});
     if(!ctx){video.srcObject=null;return source}
     const outputVideo=canvas.captureStream(fps);
     for(const at of source.getAudioTracks?.()||[])outputVideo.addTrack(at);
     const outputTrack=outputVideo.getVideoTracks()[0];
+    try{outputTrack.__lanExactOutput=true;outputTrack.__lanTargetResolution={w,h,fps}}catch{}
     const pipeline={source,outputVideo,video,canvas,ctx,raf:0,closed:false};
     let last=0;
     const frame=ts=>{
@@ -75,17 +72,16 @@
     };
     outputTrack?.addEventListener('ended',cleanup,{once:true});
     track.addEventListener('ended',cleanup,{once:true});
-    api.log?.('INFO','Fixed output capture fallback enabled',{requestedResolution:`${w}x${h}`,requestedFps:fps,sourceResolution:`${video.videoWidth||'?'}x${video.videoHeight||'?'}`,outputResolution:`${w}x${h}`});
+    api.log?.('INFO','Fixed output resolution fallback enabled',{requestedResolution:`${w}x${h}`,requestedFps:fps,sourceResolution:`${video.videoWidth||'?'}x${video.videoHeight||'?'}`,outputResolution:`${w}x${h}`});
     return outputVideo;
   };
 
-  // Encoder-side downscale remains available for the exact native path.
   const proto=window.RTCPeerConnection?.prototype;
   if(proto?.addTrack){
     const nativeAddTrack=proto.addTrack;
     proto.addTrack=function(track,...streams){
       const sender=nativeAddTrack.call(this,track,...streams);
-      if(track?.kind==='video'&&track.__lanTargetResolution){
+      if(track?.kind==='video'&&track.__lanTargetResolution&&!track.__lanExactOutput){
         const {w,h}=track.__lanTargetResolution,s=track.getSettings?.()||{};
         const sw=Number(s.width||0),sh=Number(s.height||0);
         if(sw===w&&sh===h){
