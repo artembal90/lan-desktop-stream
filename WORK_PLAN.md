@@ -163,6 +163,17 @@
 - [ ] Runtime test: verify receiver diagnostics report the selected output dimensions.
 - [ ] CI Windows build and installer/runtime verification.
 
+### 1.8.3 — Readable diagnostic log
+- [x] Added structured log formatter bootstrap without changing streaming logic.
+- [x] Log timestamps use local Windows time with milliseconds.
+- [x] Log levels are aligned (`INFO`, `WARN`, `ERROR`, `STAT`, `DEBUG`).
+- [x] Log records receive readable categories (`APP`, `SOURCE`, `SERVER`, `RECEIVER`, `STAT`, `NETWORK`, `LIFECYCLE`).
+- [x] Structured objects are expanded as indented JSON instead of `[object Object]`.
+- [x] Existing `src/main.js` functionality remains the source of log events; the formatter only normalizes their presentation.
+- [ ] CI build.
+- [ ] Runtime verification of generated log.
+- [ ] Verify exported log remains UTF-8 and readable.
+
 ## Журнал выполнения
 
 | Дата | Этап | Изменение | Результат |
@@ -174,6 +185,7 @@
 | 2026-08-29 | Этап 1.8.2 | Unified patch: statistics consistency, structured diagnostics, CPU-cycle timing, cached source selection, fast screen enumeration, background window enumeration, 1280x720/30 FPS defaults | Код объединён без IPC monkey-patching; требуется CI и runtime validation |
 | 2026-08-29 | Этап 1.8.2h | Исправлен критический регресс запуска: `app.whenReady().then(async()=>...)` | Commit `8424357a6f3557581da6ae674f41c469a12f5067`; требуется CI и runtime validation |
 | 2026-08-29 | Этап 1.8.2i | Добавлена нормализация видеопотока через canvas с фиксированным размером выбранного выхода | Код внесён; требуется CI и Windows runtime validation |
+| 2026-08-29 | Этап 1.8.3 | Добавлен bootstrap-форматтер читаемого main-process лога; вынесен logger utility | Требуется CI и runtime проверка лога |
 
 ## Правило работы с планом
 
