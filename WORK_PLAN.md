@@ -143,6 +143,13 @@
 - [ ] Repeat Start after Stop.
 - [ ] Repeat after application restart.
 
+### 1.8.2h — Critical startup regression fix
+- [x] Fixed `SyntaxError: await is only valid in async functions` in Electron main process.
+- [x] `app.whenReady()` callback is explicitly async before using `await create()`/startup operations.
+- [x] Verified `node --check src/main.js`, `src/preload.js`, `web/host/app.js` locally.
+- [ ] CI build after startup fix.
+- [ ] Runtime installation/start verification after startup fix.
+
 ## Журнал выполнения
 
 | Дата | Этап | Изменение | Результат |
@@ -152,6 +159,7 @@
 | 2026-08-29 | Этап 1 | Commit `4c2ab73f68c57e46d9e940cb8c5f0d478e3ccb3f` | Код изменений загружен в `main`; workflow запускается push в `main` |
 | 2026-08-29 | Этап 1.8.2-prep | Подготовка statistics pipeline: interval packet loss, effective FPS fallback, reuse latest stats, защита от overlapping `getStats`, lightweight periodic logging | Документация обновлена; кодовый патч подготовлен к внесению в текущий `web/host/app.js` |
 | 2026-08-29 | Этап 1.8.2 | Unified patch: statistics consistency, structured diagnostics, CPU-cycle timing, cached source selection, fast screen enumeration, background window enumeration, 1280x720/30 FPS defaults | Код объединён без IPC monkey-patching; требуется CI и runtime validation |
+| 2026-08-29 | Этап 1.8.2h | Исправлен критический регресс запуска: `app.whenReady().then(async()=>...)` | Commit `8424357a6f3557581da6ae674f41c469a12f5067`; требуется CI и runtime validation |
 
 ## Правило работы с планом
 
