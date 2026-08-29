@@ -187,6 +187,17 @@
 - [ ] Verify preview, Start/Stop and reconnect behavior.
 - [ ] Keep or revert based on measured CPU/quality results.
 
+### 1.8.5 — Exact output resolution correction
+- [x] Runtime test revealed that selected 1280×720/1920×1080 output was reported as 1280×698/1920×1040 because the native path accepted near-matching aspect ratios instead of exact dimensions.
+- [x] Changed native low-CPU path to require exact captured dimensions.
+- [x] Added `track.applyConstraints()` best-effort request before deciding whether native exact-resolution capture is possible.
+- [x] Non-exact captures now use the fixed-size canvas fallback, including upscaling to 2560×1440 when the physical source is smaller.
+- [ ] Runtime test 1280×720 — must report exactly 1280×720.
+- [ ] Runtime test 1920×1080 — must report exactly 1920×1080.
+- [ ] Runtime test 2560×1440 — must be selectable and report exactly 2560×1440.
+- [ ] Measure CPU impact of exact-resolution fallback.
+- [ ] Verify Start/Stop/reconnect after the correction.
+
 ## Журнал выполнения
 
 | Дата | Этап | Изменение | Результат |
@@ -199,8 +210,9 @@
 | 2026-08-29 | Этап 1.8.2h | Исправлен критический регресс запуска: `app.whenReady().then(async()=>...)` | Commit `8424357a6f3557581da6ae674f41c469a12f5067`; требуется CI и runtime validation |
 | 2026-08-29 | Этап 1.8.2i | Добавлена нормализация видеопотока через canvas с фиксированным размером выбранного выхода | Код внесён; требуется CI и Windows runtime validation |
 | 2026-08-29 | Этап 1.8.3 | Добавлен bootstrap-форматтер читаемого main-process лога; вынесен logger utility | Требуется CI и runtime проверка лога |
-| 2026-08-29 | Этап 1.8.4 | Переведён типовой same-aspect downscale с per-frame canvas на encoder-side WebRTC scaling; canvas оставлен fallback | Commit `31b2cfc95404f468965ca781ed1de663baa74d38`; CI Run #119 успешно собран; Windows installer/artifact получен; проведены тесты 1 и 2 пользователей. Требуется проверка точных разрешений и длительной стабильности |
+| 2026-08-29 | Этап 1.8.4 | Переведён типовой same-aspect downscale с per-frame canvas на encoder-side WebRTC scaling; canvas оставлен fallback | Commit `31b2cfc95404f468965ca781ed1de663baa74d38`; CI Run #119 успешно собран; Windows installer/artifact получен; проведены тесты 1 и 2 пользователей |
+| 2026-08-29 | Этап 1.8.5 | Исправлен допуск near-match размеров: native path теперь работает только при точном совпадении; добавлен best-effort `applyConstraints`; canvas fallback применяется для 1280×720/1920×1080/2560×1440 при несовпадении физического источника | Commit `7efb0487eea0fb61ff2d1912fa8d4ba8cf0da165`; требуется новый CI и runtime тест точных разрешений |
 
 ## Правило работы с планом
 
-После выполнения каждой задачи обновлять соответствующий пункт `[ ] → [x]`, при необходимости добавлять дату, commit SHA, номер workflow и результат тестирования в журнал выполнения.
+После выполнения каждой задачи обновлять соответствующий пункт `[ ] → [x]`, при необходимости добавлять дату, commit SHA, номер workflow и результат тестирования.
