@@ -160,6 +160,41 @@ Diagnostics must allow us to determine whether overload is caused by:
 - [x] Added explicit source-list status/recovery feedback.
 - [ ] Runtime acceptance still requires confirming that at least one real screen is selectable after cold start and restart.
 
+## 1.8.2 sequential patch plan — 2026-08-29
+
+### 1.8.2a — Reliable Stop → Start lifecycle
+- [x] Add a dedicated runtime lifecycle patch loaded after the existing 1.8.2c runtime patch.
+- [x] Serialize Start and Stop operations through one lifecycle promise so Start cannot race an unfinished Stop.
+- [x] Clear the renderer `stopping` guard before a new Start only after the previous lifecycle operation has completed.
+- [x] Log explicit Start requested / Start failed / Stop requested / Stop completed events.
+- [x] Keep the existing capture, statistics, receiver and 1.8.2c behavior unchanged.
+- [ ] CI build and Windows runtime acceptance: Start → connect receiver(s) → Stop → Start → reconnect receiver(s), without restarting the application.
+
+### 1.8.2b — Resolution and default capture parameters
+- [ ] Ensure a new installation starts with 1280×720 and 30 FPS.
+- [ ] Ensure the selected resolution is actually applied to the capture track, not only stored in the UI/configuration.
+- [ ] Ensure changing resolution while stopped and while streaming is applied consistently.
+- [ ] Verify the preview and receiver statistics report the effective capture dimensions.
+
+### 1.8.2c — CPU load reduction with multiple receivers
+- [ ] Measure one receiver versus two receivers using the same resolution/FPS/bitrate and comparable scene.
+- [ ] Separate WebRTC encode/capture cost from statistics/diagnostics cost.
+- [ ] Reduce unnecessary per-receiver processing without changing independent receiver statistics or adaptive control.
+- [ ] Re-run the two-receiver stability test after optimization.
+
+### 1.8.2d — Diagnostics and logging hardening
+- [ ] Eliminate remaining `[object Object]` diagnostic records.
+- [ ] Keep all user-facing timestamps in local PC time with milliseconds.
+- [ ] Log lifecycle failures with enough context to diagnose Start/Stop failures.
+- [ ] Verify periodic receiver statistics and aggregate TX continue updating after restart.
+
+### Sequential execution rule
+1. Finish and validate **1.8.2a** before changing 1.8.2b.
+2. Finish and validate **1.8.2b** before changing 1.8.2c.
+3. Finish and validate **1.8.2c** before changing 1.8.2d.
+4. After each stage: syntax check → CI Windows build → runtime test → update this plan.
+5. Do not mix CPU optimization changes into the restart/resolution patches.
+
 ## 1.8 implementation notes — 2026-08-29
 - 1.8.1 receiver bitrate and multi-receiver statistics display were verified in the user's #76 build test.
 - Prepared 1.8.2 by hardening the statistics pipeline before the effective-FPS implementation is considered complete.
@@ -175,6 +210,7 @@ Diagnostics must allow us to determine whether overload is caused by:
 - Unified 1.8.2 patch prepared from the clean repository: aggregate TX uses the same per-receiver statistics cycle, structured diagnostic logging includes receiver/aggregate metrics and statistics-cycle duration, and source discovery is split into fast screen enumeration plus background window enumeration.
 - Source selection no longer monkey-patches IPC or `desktopCapturer`; selected sources are cached and reused by the display-media handler.
 - New installations default to 1280×720 at 30 FPS; existing saved configuration remains unchanged.
+- 1.8.2a restart regression was reproduced from the user's Windows test: after Stop, pressing Start did not restore the stream. The root issue is a lifecycle race between renderer Start/Stop operations, not a receiver/network problem.
 
 ## Acceptance criteria for Stage 1.8
 - Diagnostics show live bitrate for each connected receiver.
@@ -203,4 +239,5 @@ Diagnostics must allow us to determine whether overload is caused by:
 - CPU impact is measured with one and two receivers; any further CPU optimization is based on those measurements.
 - The source selector remains populated after cold start and application restart, with a manual recovery action if source enumeration is temporarily unavailable.
 - Two receivers can stream simultaneously without restarts, repeated reconnect storms, or degradation of the healthy receiver.
+- Stop → Start restores a working stream without restarting the application.
 - CI syntax/tests/build remain green.
