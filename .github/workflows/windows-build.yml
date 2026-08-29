@@ -16,12 +16,23 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: npm run dist -- --publish never
+      - name: JavaScript syntax checks
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path src,web -Recurse -Filter '*.js'
+          if (-not $files) { throw 'No JavaScript files found.' }
+          foreach ($file in $files) {
+            Write-Host "Checking $($file.FullName)"
+            node --check $file.FullName
+          }
+      - name: Build Windows installer
+        run: npm run dist -- --publish never
       - name: Verify installer
         shell: pwsh
         run: |
           $file = Get-ChildItem -Path dist -Filter '*Setup.exe' | Select-Object -First 1
           if (-not $file) { throw 'Installer was not produced.' }
+          if ($file.Length -lt 100000) { throw "Installer looks invalid: $($file.Length) bytes" }
           Write-Host "Installer: $($file.FullName)"
           Write-Host "Size: $($file.Length) bytes"
       - name: Upload installer
