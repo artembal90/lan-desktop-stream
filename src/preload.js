@@ -1,17 +1,27 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Keep diagnostic payloads as structured cloneable values. The main-process
-// logger is responsible for JSON serialization so objects never become
-// "[object Object]" on the way to the log file.
+// Serialize diagnostic payloads without ever falling back to String(object).
+// Circular references, BigInt and Error values are converted explicitly.
 function normalizeLogData(data) {
-  if (data === undefined || data === null) return data;
-  if (data instanceof Error) return { name: data.name, message: data.message, stack: data.stack };
-  if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') return data;
-  try {
-    return JSON.parse(JSON.stringify(data));
-  } catch (error) {
-    return { value: String(data), serializationError: error?.message || String(error) };
-  }
+  const seen = new WeakSet();
+  const normalize = (value) => {
+    if (value === undefined || value === null) return value;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
+    if (typeof value === 'bigint') return `${value}n`;
+    if (value instanceof Error) return { name: value.name, message: value.message, stack: value.stack, code: value.code };
+    if (typeof value === 'object') {
+      if (seen.has(value)) return '[Circular]';
+      seen.add(value);
+      if (Array.isArray(value)) return value.map(normalize);
+      const out = {};
+      for (const [key, item] of Object.entries(value)) {
+        try { out[key] = normalize(item); } catch (error) { out[key] = `[Unserializable: ${error?.message || 'unknown'}]`; }
+      }
+      return out;
+    }
+    return String(value);
+  };
+  return normalize(data);
 }
 
 contextBridge.exposeInMainWorld('api', {
