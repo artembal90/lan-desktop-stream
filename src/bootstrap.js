@@ -40,8 +40,10 @@ app.whenReady().then(async()=>{
     const cpu=process.cpuUsage();
     const delta=previousCpu?{userMicros:cpu.user-previousCpu.user,systemMicros:cpu.system-previousCpu.system}:null;
     previousCpu=cpu;
+    const cpuPercent10s=delta?Number((((delta.userMicros+delta.systemMicros)/10000000)*100).toFixed(2)):null;
     const mem=process.memoryUsage();
-    appendTelemetry('Main process runtime health',{pid:process.pid,uptimeSec:Number(process.uptime().toFixed(1)),cpuUsageMicros:cpu,cpuDelta10sMicros:delta,memory:{rss:mem.rss,heapTotal:mem.heapTotal,heapUsed:mem.heapUsed,external:mem.external,arrayBuffers:mem.arrayBuffers},systemMemory:{total:require('os').totalmem(),free:require('os').freemem()},loadAverage:require('os').loadavg(),platform:process.platform,arch:process.arch,versions:{electron:process.versions.electron,chrome:process.versions.chrome,node:process.versions.node}});
+    const os=require('os');
+    appendTelemetry('Main process runtime health',{pid:process.pid,uptimeSec:Number(process.uptime().toFixed(1)),cpuUsageMicros:cpu,cpuDelta10sMicros:delta,processCpuPercent10s:cpuPercent10s,memory:{rss:mem.rss,heapTotal:mem.heapTotal,heapUsed:mem.heapUsed,external:mem.external,arrayBuffers:mem.arrayBuffers},systemMemory:{total:os.totalmem(),free:os.freemem()},cpuCores:os.cpus().length,loadAverage:os.loadavg(),platform:process.platform,arch:process.arch,versions:{electron:process.versions.electron,chrome:process.versions.chrome,node:process.versions.node}});
   };
   sample();
   telemetryTimer=setInterval(sample,10000);
