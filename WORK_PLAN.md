@@ -202,8 +202,8 @@
 - [x] Runtime test confirmed that selecting `2560x1440` is saved in configuration but the running stream can return to the previous output because the existing `stream` object is reused on restart.
 - [x] Log analysis confirmed that resolution changes currently perform `Stop server → Start server`, temporarily disconnecting receivers.
 - [x] Runtime test on a loaded PC confirmed stable two-receiver operation at 1280 and 1920 with loss `0` and ~29 FPS; this is the baseline for the next regression test.
-- [ ] On resolution change, explicitly dispose the old capture stream before starting the new one; never reuse the previous stream.
-- [ ] Add resolution-pipeline diagnostics: requested, capture settings, normalization output, outbound frame size and ready/failed state.
+- [x] On resolution change, explicitly dispose the old capture stream before starting the new one; the next Start must create a fresh capture.
+- [x] Added resolution lifecycle diagnostics for requested resolution, capture settings and output track readiness/failure.
 - [ ] Ensure `2560×1440` and `3840×2160` are accepted as output resolutions and are not clamped back to 1920.
 - [ ] Verify exact outbound resolution at 1280×720, 1920×1080, 2560×1440 and 3840×2160.
 - [ ] Verify two receivers survive resolution change where technically possible, or document the required reconnect behavior.
@@ -224,6 +224,7 @@
 | 2026-08-29 | Этап 1.8.4 | Переведён типовой same-aspect downscale с per-frame canvas на encoder-side WebRTC scaling; canvas оставлен fallback | Commit `31b2cfc95404f468965ca781ed1de663baa74d38`; CI Run #119 успешно собран; Windows installer/artifact получен; проведены тесты 1 и 2 пользователей |
 | 2026-08-29 | Этап 1.8.5 | Исправлен допуск near-match размеров: native path теперь работает только при точном совпадении; добавлен best-effort `applyConstraints`; canvas fallback применяется для 1280×720/1920×1080/2560×1440 при несовпадении физического источника | Commit `7efb0487eea0fb61ff2d1912fa8d4ba8cf0da165`; требуется новый CI и runtime тест точных разрешений |
 | 2026-08-30 | Этап 1.8.6 | Анализ лога и скриншотов загруженного ПК: 2560×1440 сохраняется в config, но при restart повторно используется существующий `stream`; смена разрешения вызывает полный server restart; 1280/1920 с двумя receiver дают ~29 FPS и loss 0 | Зафиксирована причина lifecycle-багa и согласованы следующие правки: явное уничтожение старого capture stream, подробная диагностика resolution pipeline, поддержка 2560×1440/3840×2160 без clamp |
+| 2026-08-30 | Этап 1.8.6 | Исправлено переиспользование старого `stream` при смене разрешения; добавлено принудительное освобождение capture перед новым Start; добавлены `RESOLUTION_REQUESTED`, `CAPTURE_CREATED`, `CAPTURE_SETTINGS`, `OUTPUT_TRACK_READY`, `RESOLUTION_PIPELINE_FAILED` | Commit `43cef1e3e3f82c7b954793bb72cdedaff33ffdbe`; требуется CI и runtime проверка 1280/1920/2560/3840 |
 
 ## Правило работы с планом
 
