@@ -6,8 +6,25 @@ function createLogger(getPath){
   const timestamp=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(),3)}`};
   const formatValue=v=>{
     if(v===undefined)return '';
+    if(v===null)return 'null';
     if(typeof v==='string')return v;
-    try{return JSON.stringify(v,null,2)}catch{return String(v)}
+    const seen=new WeakSet();
+    const normalize=x=>{
+      if(x===undefined)return null;
+      if(x===null||typeof x==='string'||typeof x==='number'||typeof x==='boolean')return x;
+      if(typeof x==='bigint')return `${x}n`;
+      if(x instanceof Error)return{name:x.name,message:x.message,stack:x.stack,code:x.code};
+      if(typeof x==='object'){
+        if(seen.has(x))return '[Circular]';
+        seen.add(x);
+        if(Array.isArray(x))return x.map(normalize);
+        const out={};
+        for(const [k,val] of Object.entries(x)){try{out[k]=normalize(val)}catch(e){out[k]=`[Unserializable: ${e?.message||'unknown'}]`}}
+        return out;
+      }
+      return String(x);
+    };
+    try{return JSON.stringify(normalize(v),null,2)}catch(e){return JSON.stringify({serializationError:e?.message||'unknown',valueType:typeof v},null,2)}
   };
   const write=(level,category,message,data)=>{
     try{
