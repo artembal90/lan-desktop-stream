@@ -1,6 +1,9 @@
 const fs=require('fs');
 const path=require('path');
 
+// TEST MODE: file writer disabled intentionally.
+// This build is used to determine whether [[object Object]] is produced by
+// the standalone logger.js writer or by the main.js logging path.
 function createLogger(getPath){
   const pad=(n,w=2)=>String(n).padStart(w,'0');
   const timestamp=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(),3)}`};
@@ -27,11 +30,8 @@ function createLogger(getPath){
     try{return JSON.stringify(normalize(v),null,2)}catch(e){return JSON.stringify({serializationError:e?.message||'unknown',valueType:typeof v},null,2)}
   };
   const write=(level,category,message,data)=>{
-    try{
-      const extra=data===undefined?'':`\n${formatValue(data)}`;
-      const line=`[${timestamp()}] [${String(level).toUpperCase().padEnd(5)}] [${String(category||'APP').toUpperCase().padEnd(8)}] ${message}${extra}\n`;
-      const p=getPath();fs.mkdirSync(path.dirname(p),{recursive:true});fs.appendFileSync(p,line,{encoding:'utf8'});
-    }catch{}
+    // INTENTIONAL TEST: logger.js does not write anything to disk.
+    // fs.appendFileSync(...) is disabled for this diagnostic build.
     const text=`[${category||'APP'}] ${message}`;
     if(level==='ERROR')console.error(text,data);else if(level==='WARN')console.warn(text,data);else console.log(text,data||'');
   };
