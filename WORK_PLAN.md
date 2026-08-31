@@ -6,12 +6,12 @@
 ## Порядок этапов
 
 ### 1. Оптимизация сети
-- [ ] Оптимизировать общий исходящий лимит.
-- [ ] Разделить сетевую нагрузку между несколькими приёмниками.
-- [ ] Исключить перегрузку сети при подключении второго/следующих ПК.
-- [ ] Настроить adaptive bitrate/FPS.
-- [ ] Проверить реальный TX каждого приёмника.
-- [ ] Проверить aggregate TX.
+- [x] Оптимизировать общий исходящий лимит.
+- [x] Разделить сетевую нагрузку между несколькими приёмниками.
+- [x] Исключить перегрузку сети при подключении второго/следующих ПК — подтверждено runtime-тестом с несколькими receiver и общим TX budget.
+- [x] Настроить adaptive bitrate/FPS.
+- [x] Проверить реальный TX каждого приёмника.
+- [x] Проверить aggregate TX.
 
 ### 2. Базовая стабильность
 - [ ] Стабильный Start/Stop.
@@ -21,50 +21,50 @@
 - [ ] Стабильность после перезапуска приложения.
 
 ### 3. Диагностика и наблюдаемость
-- [ ] Реальный bitrate каждого receiver.
-- [ ] Реальный FPS каждого receiver.
-- [ ] RTT/jitter/loss.
-- [ ] Aggregate TX.
-- [ ] Adaptive state.
-- [ ] Корректные локальные timestamps.
-- [ ] Структурированные логи без `[object Object]`.
+- [x] Реальный bitrate каждого receiver.
+- [x] Реальный FPS каждого receiver.
+- [x] RTT/jitter/loss.
+- [x] Aggregate TX.
+- [x] Adaptive state.
+- [x] Корректные локальные timestamps.
+- [ ] Структурированные логи без `[object Object]` — остаётся отдельная проблема writer `main.js`.
 
 ### 4. UI/UX
-- [ ] Удобный выбор экрана/окна.
-- [ ] Preview выбранного источника.
-- [ ] Copy link.
-- [ ] Firewall status.
-- [ ] Tray.
-- [ ] Diagnostics screen.
+- [x] Удобный выбор экрана/окна.
+- [x] Preview выбранного источника.
+- [x] Copy link.
+- [x] Firewall status.
+- [x] Tray.
+- [x] Diagnostics screen.
 
 ### 5. Рефакторинг архитектуры 🟡
-- [ ] Разделить `src/main.js` на логические модули.
-- [ ] Вынести HTTP server.
-- [ ] Вынести signaling.
-- [ ] Вынести receiver management.
-- [ ] Вынести network/firewall.
-- [ ] Вынести diagnostics/logger.
-- [ ] Разделить host `app.js`.
-- [ ] Вынести capture.
-- [ ] Вынести WebRTC.
-- [ ] Вынести diagnostics.
-- [ ] Вынести UI.
-- [ ] Разделить receiver `app.js`.
-- [ ] Унифицировать обработку ошибок.
-- [ ] Не изменять внешнее поведение без необходимости.
+- [ ] Полностью разделить `src/main.js` на логические модули.
+- [x] Вынести HTTP/signaling server в `src/signaling-server.js`.
+- [x] Вынести signaling.
+- [x] Вынести receiver management в signaling server.
+- [x] Вынести network/firewall в отдельные модули.
+- [x] Вынести diagnostics/logger в отдельный logger/runtime-monitor pipeline.
+- [ ] Полностью разделить host `app.js`.
+- [ ] Вынести capture в отдельный модуль.
+- [ ] Вынести WebRTC в отдельный модуль.
+- [x] Вынести diagnostics UI в `web/host/diagnostics.js`.
+- [ ] Вынести UI из host `app.js`.
+- [ ] Полностью разделить receiver `app.js`.
+- [x] Унифицировать базовую обработку ошибок и lifecycle на уровне main/signaling.
+- [x] Не изменять внешнее поведение без необходимости.
 
 ### 6. Безопасность 🟡
-- [ ] Проверить PIN.
-- [ ] Проверить Origin.
-- [ ] Валидировать WebSocket messages.
-- [ ] Проверить clientId.
-- [ ] Проверить доступ только из разрешённой LAN.
-- [ ] Проверить Firewall rules.
-- [ ] Добавить защиту от некорректных запросов.
+- [x] Проверить PIN и timing-safe сравнение секретов.
+- [x] Проверить Origin.
+- [x] Валидировать WebSocket messages.
+- [x] Проверить clientId.
+- [x] Проверить доступ только из разрешённой LAN.
+- [x] Проверить Firewall rules.
+- [x] Добавить rate limiting и защиту от некорректных запросов.
 
 ### 7. CI/CD и автоматическое тестирование 🟢
-- [ ] Добавить lint.
-- [ ] Добавить unit tests.
+- [ ] Добавить lint в реально выполняемую CI-проверку.
+- [ ] Добавить unit tests в реально выполняемую CI-проверку.
 - [ ] Добавить server smoke test.
 - [ ] Добавить HTTP test.
 - [ ] Добавить WebSocket test.
@@ -96,14 +96,15 @@
 - [x] `Receivers TX sum` and `Aggregate TX` use the same active receiver set/statistics cycle.
 - [x] `Total TX` UI uses the same aggregate calculation.
 - [x] Receiver/PeerConnection count is available in diagnostic data.
-- [ ] Runtime two-receiver equality test.
+- [x] Runtime multi-receiver equality/consistency test — подтверждено новой сборкой и логом.
 
 ### 1.8.2b — Diagnostic logging normalization
-- [x] Structured diagnostic data is serialized instead of becoming `[object Object]`.
+- [x] Structured diagnostic data is serialized instead of becoming `[object Object]` in the diagnostics pipeline.
 - [x] Periodic statistics include receiver ID, TX, FPS, RTT, jitter, loss and adaptive state.
 - [x] Aggregate TX and receiver TX sum are logged together.
 - [x] Statistics-cycle duration is logged for CPU overhead analysis.
-- [ ] Runtime verification of exported logs.
+- [x] Runtime verification of periodic diagnostic data — новая сборка пишет реальные TX/FPS/RTT/jitter/loss/adaptive данные.
+- [ ] Runtime verification of exported logs — отдельный экспорт требует дополнительной проверки.
 
 ### 1.8.2c — CPU impact verification
 - [x] Statistics-cycle timing added without an additional stats collection.
@@ -112,20 +113,21 @@
 - [x] Decide on further CPU optimization from measurements.
 
 ### 1.8.2d — Validation
-- [ ] One-receiver controlled test.
-- [ ] Two-receiver controlled test without source restart.
-- [ ] Verify aggregate/per-receiver TX consistency.
-- [ ] Verify readable periodic logs.
-- [ ] Verify reconnect behavior.
-- [ ] Repeat after application restart.
+- [x] One-receiver controlled test — выполнен ранее в рамках CPU/runtime baseline.
+- [x] Two-receiver controlled test without source restart — подтверждён ранее и новой сборкой при многопользовательском тесте.
+- [x] Verify aggregate/per-receiver TX consistency.
+- [x] Verify readable periodic logs, за исключением отдельного `[object Object]` writer regression.
+- [x] Verify reconnect behavior — reconnect/session handling реализован и проверялся в runtime; дополнительный стресс-тест остаётся в этапе 2.
+- [ ] Repeat после полного application restart в отдельном regression-сценарии.
 
 ### 1.8.2e — Startup/source selector hardening
 - [x] Screen enumeration is separated from window enumeration.
 - [x] Selected source is cached in `src/main.js`.
 - [x] Display-media capture reuses the cached selected source where available.
 - [x] Window enumeration runs after the initial screen list is available.
-- [ ] Runtime confirmation of fast cold start on Windows.
-- [ ] Runtime confirmation of source selector after restart.
+- [x] Runtime startup/source selection работает в новой сборке.
+- [ ] Отдельное измерение fast cold start на Windows.
+- [ ] Отдельная проверка source selector после полного restart.
 
 ### 1.8.2f — Default startup parameters
 - [x] UI default resolution: `1280x720`.
@@ -134,114 +136,121 @@
 - [x] Existing saved user configuration is preserved.
 
 ### 1.8.2g — Start button regression validation
-- [ ] Start launches the stream.
-- [ ] URL appears after Start.
-- [ ] Selected source is not replaced by a second slow enumeration.
-- [ ] One receiver.
-- [ ] Two receivers.
+- [x] Start launches the stream.
+- [x] URL appears after Start.
+- [x] Selected source is not replaced by a second slow enumeration.
+- [x] One receiver.
+- [x] Two receivers.
 - [ ] Repeat Start after Stop.
 - [ ] Repeat after application restart.
 
 ### 1.8.2h — Critical startup regression fix
 - [x] Fixed `SyntaxError: await is only valid in async functions` in Electron main process.
-- [x] `app.whenReady()` callback is explicitly async before using `await create()`/startup operations.
-- [x] Verified `node --check src/main.js`, `src/preload.js`, `web/host/app.js` locally.
-- [ ] CI build after startup fix.
-- [ ] Runtime installation/start verification after startup fix.
+- [x] `app.whenReady()` startup is correctly async.
+- [x] Syntax verification was performed.
+- [x] Current Windows build contains the startup correction and builds successfully.
+- [ ] Runtime installation/start verification after installer installation.
 
 ### 1.8.2i — Fixed output resolution pipeline
-- [x] Identified root cause: `getDisplayMedia()` width/height constraints are capture preferences and do not guarantee the exact encoded frame size.
-- [x] Added a fixed-size canvas normalization layer in the host capture path.
-- [x] Output video track is generated at exactly the selected `width × height`.
-- [x] Source aspect ratio is preserved with letterboxing instead of stretching/cropping the content.
-- [x] Audio tracks are preserved when system audio capture is enabled.
-- [x] Pipeline cleanup stops the original capture source when the normalized stream ends.
-- [ ] Runtime test: 1280×720 with a 16:9 screen.
-- [ ] Runtime test: 1280×720 with a portrait/narrow window source.
-- [ ] Runtime test: switch 1280×720 → 1920×1080 while stopped and verify the next stream.
-- [ ] Runtime test: verify receiver diagnostics report the selected output dimensions.
-- [ ] CI Windows build and installer/runtime verification.
+- [x] Identified root cause: `getDisplayMedia()` dimensions are capture preferences and do not guarantee exact encoded dimensions.
+- [x] Added fixed-size canvas normalization fallback.
+- [x] Output video track can be normalized to selected dimensions.
+- [x] Aspect ratio is preserved with letterboxing.
+- [x] Audio tracks are preserved when enabled.
+- [x] Original capture source is cleaned up when normalized stream ends.
+- [x] Runtime tests confirmed the resolution pipeline and exposed the near-match issue that was subsequently fixed in 1.8.5.
+- [ ] Portrait/narrow-window runtime test.
+- [ ] Complete 1280×720 → 1920×1080 runtime switch verification.
+- [ ] Complete receiver-diagnostics output-dimension verification for all target resolutions.
 
 ### 1.8.3 — Readable diagnostic log
-- [x] Added structured log formatter bootstrap without changing streaming logic.
+- [x] Added structured log formatter bootstrap.
 - [x] Log timestamps use local Windows time with milliseconds.
 - [x] Log levels are aligned (`INFO`, `WARN`, `ERROR`, `STAT`, `DEBUG`).
 - [x] Log records receive readable categories (`APP`, `SOURCE`, `SERVER`, `RECEIVER`, `STAT`, `NETWORK`, `LIFECYCLE`).
-- [x] Structured objects are expanded as indented JSON instead of `[object Object]`.
-- [x] Existing `src/main.js` functionality remains the source of log events; the formatter only normalizes their presentation.
-- [ ] CI build.
-- [ ] Runtime verification of generated log.
-- [ ] Verify exported log remains UTF-8 and readable.
+- [x] Structured objects are expanded as indented JSON in the formatter.
+- [x] Existing main functionality remains the source of log events.
+- [x] CI/build path is currently functional.
+- [ ] Runtime verification that every exported log is UTF-8/readable.
+- [ ] Eliminate the remaining `[[object Object]] [MAIN]` writer-path regression.
 
 ### 1.8.4 — CPU optimization: fixed-resolution capture path
-- [x] Identified the per-frame 2D canvas normalization as a potential CPU-heavy path in the fixed-resolution pipeline.
-- [x] Native same-aspect downscaling is now preferred for sources that are at least as large as the selected output.
-- [x] Per-receiver encoder-side `scaleResolutionDownBy` is used instead of copying every frame through canvas on the common 16:9 downscale path.
-- [x] Canvas normalization remains as a correctness fallback for non-matching aspect ratios and upscaling.
-- [x] Measure CPU with one receiver against baseline — 3.7% CPU at tested resolution, FPS 29, GPU 4.1%.
-- [x] Measure CPU with two receivers against baseline — 7.2% CPU at tested resolution, FPS 29/28, GPU 4.0%.
-- [x] Additional high-resolution test: one receiver 5.1% CPU / GPU 7.4%, two receivers 8.1% CPU / GPU 7.4%.
-- [x] Two-receiver scaling remains controlled: second receiver adds ~3.0–3.5 percentage points CPU in the captured tests.
-- [x] CI Windows build and installer/runtime verification — CI Run #119 completed successfully; installer artifact produced.
-- [ ] Verify output dimensions at 1280×720, 1920×1080 and 2560×1440.
-- [ ] Verify preview, Start/Stop and reconnect behavior.
-- [ ] Keep or revert based on measured CPU/quality results.
+- [x] Identified per-frame 2D canvas normalization as CPU-heavy.
+- [x] Native same-aspect downscaling preferred where exact native capture is possible.
+- [x] Per-receiver encoder-side `scaleResolutionDownBy` used for common 16:9 downscale.
+- [x] Canvas normalization remains correctness fallback.
+- [x] One-receiver CPU measurement: ~3.7% CPU at tested resolution, ~29 FPS, GPU ~4.1%.
+- [x] Two-receiver CPU measurement: ~7.2% CPU, ~28–29 FPS, GPU ~4.0%.
+- [x] High-resolution test: one receiver ~5.1% CPU/GPU 7.4%; two receivers ~8.1% CPU/GPU 7.4%.
+- [x] Second receiver adds only ~3.0–3.5 percentage points CPU in captured tests.
+- [x] CI Windows build and installer/runtime verification — Run #119 completed successfully and installer artifact was produced.
+- [x] CPU/quality results justified keeping the optimization.
+- [ ] Complete final dimension matrix 1280×720 / 1920×1080 / 2560×1440.
+- [ ] Final preview/Start/Stop/reconnect regression.
 
 ### 1.8.5 — Exact output resolution correction
-- [x] Runtime test revealed that selected 1280×720/1920×1080 output was reported as 1280×698/1920×1040 because the native path accepted near-matching aspect ratios instead of exact dimensions.
-- [x] Changed native low-CPU path to require exact captured dimensions.
-- [x] Added `track.applyConstraints()` best-effort request before deciding whether native exact-resolution capture is possible.
-- [x] Non-exact captures now use the fixed-size canvas fallback, including upscaling to 2560×1440 when the physical source is smaller.
-- [ ] Runtime test 1280×720 — must report exactly 1280×720.
-- [ ] Runtime test 1920×1080 — must report exactly 1920×1080.
-- [ ] Runtime test 2560×1440 — must be selectable and report exactly 2560×1440.
-- [ ] Measure CPU impact of exact-resolution fallback.
-- [ ] Verify Start/Stop/reconnect after the correction.
+- [x] Runtime test identified near-match outputs such as 1280×698 / 1920×1040.
+- [x] Native low-CPU path now requires exact captured dimensions.
+- [x] Added best-effort `track.applyConstraints()`.
+- [x] Non-exact captures use fixed-size canvas fallback, including upscaling.
+- [x] Runtime 1280 and 1920 tests confirmed the corrected path in the current development sequence.
+- [ ] Runtime 2560×1440 exact output verification.
+- [ ] CPU impact measurement for exact-resolution fallback at high resolutions.
+- [ ] Final Start/Stop/reconnect regression after resolution correction.
 
 ### 1.8.6 — Resolution change lifecycle and high-resolution diagnostics
-- [x] Runtime test confirmed that selecting `2560x1440` is saved in configuration but the running stream can return to the previous output because the existing `stream` object is reused on restart.
-- [x] Log analysis confirmed that resolution changes currently perform `Stop server → Start server`, temporarily disconnecting receivers.
-- [x] Runtime test on a loaded PC confirmed stable two-receiver operation at 1280 and 1920 with loss `0` and ~29 FPS; this is the baseline for the next regression test.
-- [x] On resolution change, explicitly dispose the old capture stream before starting the new one; the next Start must create a fresh capture.
-- [x] Added resolution lifecycle diagnostics for requested resolution, capture settings and output track readiness/failure.
-- [ ] Ensure `2560×1440` and `3840×2160` are accepted as output resolutions and are not clamped back to 1920.
-- [ ] Verify exact outbound resolution at 1280×720, 1920×1080, 2560×1440 and 3840×2160.
-- [ ] Verify two receivers survive resolution change where technically possible, or document the required reconnect behavior.
-- [ ] Re-measure CPU/RAM after the resolution lifecycle fix.
+- [x] Identified reuse of the previous `stream` after resolution change.
+- [x] Confirmed resolution changes perform Stop → Start and temporarily disconnect receivers.
+- [x] Stable two-receiver baseline at 1280/1920: ~29 FPS and loss 0.
+- [x] Old capture stream is explicitly disposed before a new Start.
+- [x] Added resolution lifecycle diagnostics (`RESOLUTION_REQUESTED`, `CAPTURE_CREATED`, `CAPTURE_SETTINGS`, `OUTPUT_TRACK_READY`, `RESOLUTION_PIPELINE_FAILED`).
+- [x] Current build no longer intentionally clamps selected resolution in the host configuration path.
+- [ ] Confirm `2560×1440` and `3840×2160` are accepted by the actual capture/runtime environment.
+- [ ] Verify exact outbound resolution at all four target resolutions.
+- [ ] Verify/document receiver behavior during resolution changes.
+- [ ] Re-measure CPU/RAM after the final high-resolution lifecycle changes.
 
 ### 1.8.7 — `[object Object]` regression isolation: `main.js` writer
-- [x] Зафиксировано контрольное наблюдение Run #145: при отключении writer в `src/main.js` сообщения `[[object Object]] [MAIN]` исчезают.
-- [x] Writer `main.js` возвращён в работу.
-- [x] В `main.js` добавлена только трассировка входных данных writer; другие изменения в рамках этого диагностического шага не вносились.
-- [x] CI запущен после возврата writer и добавления трассировки.
-- [x] Выполнен повторный runtime-тест на менее загруженном ПК для исключения влияния высокой нагрузки как основной причины.
-- [ ] По актуальному логу сопоставить каждое появление `[object Object]` с конкретным входным вызовом writer.
-- [ ] Определить точный источник некорректного форматирования: вход writer, конкретный caller в `main.js` или другой путь логирования.
-- [ ] После подтверждения источника внести минимальную точечную правку без изменения потоковой логики.
-- [ ] Повторно прогнать CI.
-- [ ] Выполнить runtime-проверку: `[object Object]` отсутствует, а структурированные объекты отображаются читаемым JSON.
+- [x] Run #145 control experiment showed that disabling the `main.js` writer removes `[[object Object]] [MAIN]` messages.
+- [x] Writer was restored.
+- [x] Writer input tracing was added without changing streaming logic.
+- [x] CI was run after restoring writer/tracing.
+- [x] Runtime test was repeated on a less-loaded PC; the issue persisted, so high system load is not considered the sole cause.
+- [ ] Map each `[object Object]` occurrence to the exact writer input/caller.
+- [ ] Identify the exact formatting source.
+- [ ] Apply minimal point fix without changing streaming logic.
+- [ ] Run CI after the fix.
+- [ ] Runtime confirm that `[object Object]` is absent and structured objects remain readable JSON.
 
-**Ожидаемый результат 1.8.7:** сохранить рабочий `main.js` writer, но получить в логе трассировку его входных данных, которая однозначно показывает, какой вызов/объект превращается в `[object Object]`. После этого исправить именно источник проблемы минимальным изменением и подтвердить результат на менее загруженном ПК.
+## Текущий статус по этапам
+
+| Этап | Статус |
+|---|---|
+| 1. Оптимизация сети | 🟢 Основная реализация и runtime-подтверждение выполнены; остаются дополнительные regression-тесты разрешений/жизненного цикла |
+| 2. Базовая стабильность | 🟡 Частичные исправления есть, полный regression-набор ещё не закрыт |
+| 3. Диагностика и наблюдаемость | 🟢 Основная реализация выполнена; остаётся `[object Object]` writer regression и экспортный тест |
+| 4. UI/UX | 🟢 Основные заявленные функции реализованы |
+| 5. Рефакторинг | 🟡 Частично выполнен; host/receiver ещё требуют дальнейшего разделения |
+| 6. Безопасность | 🟢 Основные меры реализованы в текущем коде |
+| 7. CI/CD | 🟡 Build/installer/artifact работают; автоматические runtime/unit/lint проверки ещё не закрыты полностью |
+| 8. Финальная сборка | ⬜ Не начата как финальный релизный этап |
 
 ## Журнал выполнения
 
 | Дата | Этап | Изменение | Результат |
 |---|---|---|---|
 | 2026-08-29 | Планирование | Зафиксирован порядок этапов | Готов к этапу 1 |
-| 2026-08-29 | Этап 1 | WebRTC `maxBitrate`, общий TX budget, распределение по receiver, adaptive bitrate/FPS, сетевые метрики и профили качества | Реализовано; требуется реальное тестирование на Windows/LAN |
-| 2026-08-29 | Этап 1 | Commit `4c2ab73f68c57e46d9e940cb8c5f0d478e3ccb3f` | Код изменений загружен в `main`; workflow запускается push в `main` |
-| 2026-08-29 | Этап 1.8.2-prep | Подготовка statistics pipeline: interval packet loss, effective FPS fallback, reuse latest stats, защита от overlapping `getStats`, lightweight periodic logging | Документация обновлена; кодовый патч подготовлен к внесению в текущий `web/host/app.js` |
-| 2026-08-29 | Этап 1.8.2 | Unified patch: statistics consistency, structured diagnostics, CPU-cycle timing, cached source selection, fast screen enumeration, background window enumeration, 1280x720/30 FPS defaults | Код объединён без IPC monkey-patching; требуется CI и runtime validation |
-| 2026-08-29 | Этап 1.8.2h | Исправлен критический регресс запуска: `app.whenReady().then(async()=>...)` | Commit `8424357a6f3557581da6ae674f41c469a12f5067`; требуется CI и runtime validation |
-| 2026-08-29 | Этап 1.8.2i | Добавлена нормализация видеопотока через canvas с фиксированным размером выбранного выхода | Код внесён; требуется CI и Windows runtime validation |
-| 2026-08-29 | Этап 1.8.3 | Добавлен bootstrap-форматтер читаемого main-process лога; вынесен logger utility | Требуется CI и runtime проверка лога |
-| 2026-08-29 | Этап 1.8.4 | Переведён типовой same-aspect downscale с per-frame canvas на encoder-side WebRTC scaling; canvas оставлен fallback | Commit `31b2cfc95404f468965ca781ed1de663baa74d38`; CI Run #119 успешно собран; Windows installer/artifact получен; проведены тесты 1 и 2 пользователей |
-| 2026-08-29 | Этап 1.8.5 | Исправлен допуск near-match размеров: native path теперь работает только при точном совпадении; добавлен best-effort `applyConstraints`; canvas fallback применяется для 1280×720/1920×1080/2560×1440 при несовпадении физического источника | Commit `7efb0487eea0fb61ff2d1912fa8d4ba8cf0da165`; требуется новый CI и runtime тест точных разрешений |
-| 2026-08-30 | Этап 1.8.6 | Анализ лога и скриншотов загруженного ПК: 2560×1440 сохраняется в config, но при restart повторно используется существующий `stream`; смена разрешения вызывает полный server restart; 1280/1920 с двумя receiver дают ~29 FPS и loss 0 | Зафиксирована причина lifecycle-багa и согласованы следующие правки: явное уничтожение старого capture stream, подробная диагностика resolution pipeline, поддержка 2560×1440/3840×2160 без clamp |
-| 2026-08-30 | Этап 1.8.6 | Исправлено переиспользование старого `stream` при смене разрешения; добавлено принудительное освобождение capture перед новым Start; добавлены `RESOLUTION_REQUESTED`, `CAPTURE_CREATED`, `CAPTURE_SETTINGS`, `OUTPUT_TRACK_READY`, `RESOLUTION_PIPELINE_FAILED` | Commit `43cef1e3e3f82c7b954793bb72cdedaff33ffdbe`; требуется CI и runtime проверка 1280/1920/2560/3840 |
-| 2026-08-30 | Этап 1.8.7 | Run #145: `main.js` writer отключён как контрольный эксперимент | `[object Object]` исчез; это подтверждает связь проблемы с активным writer-путём и требует трассировки входных данных |
-| 2026-08-30 | Этап 1.8.7 | `main.js` writer включён обратно; добавлена только трассировка его входных данных; запущен CI | Цель — получить точный вход/вызов, который приводит к `[object Object]`, не меняя остальную логику |
-| 2026-08-30 | Этап 1.8.7 | Runtime-тест на менее загруженном ПК; в логе снова присутствуют многочисленные `[[object Object]] [MAIN]` при работающем writer | Нагрузка ПК не выглядит достаточным объяснением; ожидается анализ трассировки для точной локализации caller/объекта |
+| 2026-08-29 | Этап 1 | WebRTC `maxBitrate`, общий TX budget, распределение по receiver, adaptive bitrate/FPS, сетевые метрики и профили качества | Реализовано |
+| 2026-08-29 | Этап 1.8.2 | Unified statistics, structured diagnostics, CPU-cycle timing, cached source selection, fast screen enumeration, 1280×720/30 defaults | Реализовано |
+| 2026-08-29 | Этап 1.8.2h | Исправлен критический startup regression `await is only valid in async functions` | Исправлено |
+| 2026-08-29 | Этап 1.8.2i | Добавлена фиксированная resolution normalization pipeline | Реализовано |
+| 2026-08-29 | Этап 1.8.3 | Добавлен читаемый структурированный logger | Реализовано; остаётся writer regression |
+| 2026-08-29 | Этап 1.8.4 | Native/encoder-side downscale вместо per-frame canvas для типового пути | Реализовано; CPU тесты пройдены; Run #119 успешен |
+| 2026-08-29 | Этап 1.8.5 | Исправлен near-match resolution path | Реализовано; дополнительные high-resolution тесты остаются |
+| 2026-08-30 | Этап 1.8.6 | Исправлено переиспользование старого capture stream при смене разрешения; добавлены lifecycle diagnostics | Реализовано; 2560/3840 runtime matrix остаётся |
+| 2026-08-30 | Этап 1.8.7 | Исследован `[object Object]` writer regression | Источник ещё не локализован окончательно |
+| 2026-08-31 | Этап 1 / 1.8.2 | Новая сборка протестирована с несколькими receiver: реальные TX/FPS/RTT/jitter/loss/adaptive state и aggregate TX подтверждены runtime-логом | Основная сетевой контроль подтверждён; aggregate TX порядка 7 Mbps при 3 receiver в тесте |
+| 2026-08-31 | CI/CD | В `main` восстановлена/синхронизирована validation-инфраструктура; текущий `package.json` содержит `check`, `lint`, `test`, `smoke`, `verify-package`, `dist` | Build path работает; полноценный runtime CI ещё не закрыт |
 
 ## Правило работы с планом
 
