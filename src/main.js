@@ -1,21 +1,134 @@
-const {app,BrowserWindow,desktopCapturer,session,ipcMain,Tray,Menu,dialog}=require('electron');
-const path=require('path'),os=require('os'),fs=require('fs'),{execFile}=require('child_process'),express=require('express'),http=require('http'),WebSocket=require('ws'),QRCode=require('qrcode');
-let win,server,wss,port=8080,selectedSourceId,selectedSourceDisplayId,selectedSourceName,hostWs=null,receivers=new Map(),receiversByClient=new Map(),blockedReceivers=new Set(),receiverGraceTimers=new Map(),currentConfig={pin:''},tray=null,forceQuit=false,sourceCache=new Map();
-const resource=p=>app.isPackaged?path.join(process.resourcesPath,p):path.join(__dirname,'..',p);const cfgPath=()=>path.join(app.getPath('userData'),'config.json');const logPath=()=>path.join(app.getPath('userData'),'lan-desktop-stream.log');
-function serializeLogValue(value){const seen=new WeakSet();const normalize=v=>{if(v===undefined)return null;if(v===null||typeof v==='string'||typeof v==='number'||typeof v==='boolean')return v;if(typeof v==='bigint')return `${v}n`;if(v instanceof Error)return{name:v.name,message:v.message,stack:v.stack,code:v.code};if(typeof v==='object'){if(seen.has(v))return'[Circular]';seen.add(v);if(Array.isArray(v))return v.map(normalize);const out={};for(const[k,item]of Object.entries(v)){try{out[k]=normalize(item)}catch(e){out[k]=`[Unserializable: ${e?.message||'unknown'}]`}}return out}return String(v)};try{return JSON.stringify(normalize(value))}catch(e){return JSON.stringify({serializationError:e?.message||'unknown',valueType:typeof value})}}
-function localTimestamp(){const d=new Date(),p=n=>String(n).padStart(2,'0'),ms=String(d.getMilliseconds()).padStart(3,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${ms}`}function log(level,message,data){const trace={level:typeof level,messageType:typeof message,dataType:typeof data,message:data===undefined?message:String(message),data:data===undefined?null:data};try{console.log('[MAIN_LOG_INPUT]',JSON.stringify(trace))}catch(e){console.log('[MAIN_LOG_INPUT]',String(message))}if(typeof message==='object'||(data!==undefined&&typeof data==='object')){try{console.log('[MAIN_OBJECT_STRINGIFY_TRACE]',serializeLogValue({level,message,data}))}catch(e){console.log('[MAIN_OBJECT_STRINGIFY_TRACE_ERROR]',e?.message||String(e))}}const line=`[${localTimestamp()}] [${String(level||'INFO').padEnd(6)}] [MAIN] ${String(message||'')} ${data===undefined?'':serializeLogValue(data)}\n`;try{fs.mkdirSync(path.dirname(logPath()),{recursive:true});fs.appendFileSync(logPath(),line)}catch(e){};if(level==='ERROR')console.error(message,data);else if(level==='WARN')console.warn(message,data);else console.log(message,data||'')}
-process.on('uncaughtException',e=>log('ERROR','uncaughtException',e));process.on('unhandledRejection',e=>log('ERROR','unhandledRejection',e));
-function load(){try{return JSON.parse(fs.readFileSync(cfgPath(),'utf8'))}catch{return{port:8080,resolution:'1280x720',fps:30,bitrate:6000000,totalBitrate:10000000,quality:'balanced',audio:false,autoStart:false,pin:''}}}function save(c){fs.mkdirSync(path.dirname(cfgPath()),{recursive:true});fs.writeFileSync(cfgPath(),JSON.stringify(c,null,2));currentConfig=c;log('INFO','Configuration saved',{port:c.port,resolution:c.resolution,fps:c.fps,bitrate:c.bitrate})}
-function isPrivate(ip){const p=String(ip||'').split('.').map(Number);return p.length===4&&((p[0]===10)||(p[0]===172&&p[1]>=16&&p[1]<=31)||(p[0]===192&&p[1]===168))}function interfaces(){const out=[];for(const [name,list]of Object.entries(os.networkInterfaces()))for(const n of list||[])if(n.family==='IPv4'&&!n.internal&&isPrivate(n.address))out.push({name,address:n.address,netmask:n.netmask||''});return out}
-function preferredLanIp(){return new Promise(resolve=>{if(process.platform!=='win32')return resolve(interfaces()[0]?.address||'127.0.0.1');const ps="$c=Get-NetIPConfiguration | Where-Object {$_.IPv4DefaultGateway -and $_.IPv4Address} | ForEach-Object { [PSCustomObject]@{Alias=$_.InterfaceAlias;Address=$_.IPv4Address.IPAddress;Gateway=$_.IPv4DefaultGateway.NextHop;Metric=$_.InterfaceMetric} }; $c | ConvertTo-Json -Compress";execFile('powershell.exe',['-NoProfile','-NonInteractive','-Command',ps],{windowsHide:true},(err,out)=>{if(!err&&out){try{let a=JSON.parse(out);if(!Array.isArray(a))a=[a];const good=a.filter(x=>isPrivate(x.Address)&&x.Gateway);const rank=x=>{const s=String(x.Alias||'').toLowerCase();return(s.includes('ethernet')?0:s.includes('wi-fi')||s.includes('wifi')?1:s.includes('wireless')?2:10)};good.sort((a,b)=>rank(a)-rank(b)||(Number(a.Metric)||999)-(Number(b.Metric)||999));if(good[0])return resolve(good[0].Address)}catch(e){log('WARN','LAN IP parse failed',e)}}const fallback=interfaces();const preferred=fallback.find(x=>/ethernet|wi-fi|wifi|wireless/i.test(x.name))||fallback[0];resolve(preferred?.address||'127.0.0.1')})})}
-function list(){return[...receivers.values()].map(x=>x.info)}function event(x){win?.webContents.send('server-event',x);if(x?.type)log('INFO','Event',x)}function send(ws,m){if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify(m))}
-async function addFirewallRule(p){const name='LAN Desktop Stream';return new Promise(resolve=>{execFile('netsh',['advfirewall','firewall','add','rule',`name=${name}`,`dir=in`,`action=allow`,`protocol=TCP`,`localport=${p}`],{windowsHide:true},(err,stdout,stderr)=>{if(!err){log('INFO','Firewall rule result',{port:p,ok:true,method:'direct'});return resolve(true)}execFile('powershell.exe',['-NoProfile','-NonInteractive','-Command',`Start-Process netsh -ArgumentList 'advfirewall firewall add rule name=\"${name}\" dir=in action=allow protocol=TCP localport=${p}' -Verb RunAs -Wait`],{windowsHide:true},(e2,out2,e2s)=>{log(e2?'WARN':'INFO','Firewall rule result',{port:p,ok:!e2,method:'elevated',error:e2?.message,stderr:String(e2s||'').trim()});resolve(!e2)})})})}
-function removeReceiver(id,reason='closed'){const r=receivers.get(id);if(!r)return;receivers.delete(id);if(r.info?.clientId&&receiversByClient.get(r.info.clientId)===id)receiversByClient.delete(r.info.clientId);try{r.ws.close(4001,reason)}catch{}try{r.ws.terminate()}catch{}log('INFO','Receiver removed',{id,clientId:r.info?.clientId,reason});event({type:'receivers',receivers:list()});send(hostWs,{type:'receiver-left',receiverId:id})}
-function replaceClientSession(clientId,newWs){const oldId=receiversByClient.get(clientId);if(!oldId)return null;const old=receivers.get(oldId);if(!old){receiversByClient.delete(clientId);return null}if(receiverGraceTimers.has(oldId)){clearTimeout(receiverGraceTimers.get(oldId));receiverGraceTimers.delete(oldId)}log('INFO','Receiver session replaced without creating logical receiver',{clientId,id:oldId});try{old.ws.close(4002,'Replaced by reconnect')}catch{}try{old.ws.terminate()}catch{}old.ws=newWs;old.disconnectedAt=0;return oldId}
-async function startServer(p){log('INFO','Starting server',{port:p});const ex=express();ex.disable('x-powered-by');ex.use(express.static(path.join(__dirname,'..','web','receiver')));const nextServer=http.createServer(ex);const nextWss=new WebSocket.Server({server:nextServer,path:'/signal'});nextWss.on('connection',(ws,req)=>{const rip=(req.socket.remoteAddress||'').replace(/^::ffff:/,'');let id=null,role='',clientId='';log('INFO','WebSocket connection',{ip:rip});ws.on('message',raw=>{let m;try{m=JSON.parse(raw.toString())}catch(e){log('WARN','Invalid WebSocket message',e.message);return}if(m.type==='join'){role=m.role;if(role==='host'){if(hostWs&&hostWs!==ws)try{hostWs.close(1000,'Replaced by new host')}catch{}hostWs=ws;send(ws,{type:'host-ready'});for(const r of receivers.values())send(ws,{type:'receiver-joined',receiver:r.info});return}if(role==='receiver'){clientId=String(m.clientId||'').slice(0,128);if(!clientId){send(ws,{type:'kicked',message:'Не удалось определить идентификатор приёмника'});try{ws.close(4003,'Missing client id')}catch{};log('WARN','Receiver without clientId',{ip:rip});return}if(blockedReceivers.has(clientId)){send(ws,{type:'kicked',message:'Этот приёмник отключён источником'});try{ws.close(4000,'Receiver blocked by host')}catch{};log('INFO','Blocked receiver reconnect',{clientId,ip:rip});return}const wantedPin=String(m.pin||'');if(currentConfig.pin&&wantedPin!==String(currentConfig.pin)){send(ws,{type:'auth-error',message:'Неверный PIN'});setTimeout(()=>{try{ws.close()}catch{}},300);log('WARN','Receiver authentication failed',{ip:rip});return}const existingId=replaceClientSession(clientId,ws);if(existingId){id=existingId;const r=receivers.get(id);r.info.name=String(m.name||r.info.name||'Browser').slice(0,40);r.info.ip=rip;log('INFO','Receiver reconnected',{id,clientId,ip:rip});send(ws,{type:'joined',id,reconnected:true});event({type:'receivers',receivers:list()});send(hostWs,{type:'receiver-joined',receiver:r.info,reconnected:true})}else{id=Date.now()+'-'+Math.random().toString(36).slice(2,10);const info={id,clientId,name:String(m.name||'Browser').slice(0,40),ip:rip};receivers.set(id,{ws,info,disconnectedAt:0});receiversByClient.set(clientId,id);log('INFO','Receiver joined',info);send(ws,{type:'joined',id});event({type:'receivers',receivers:list()});send(hostWs,{type:'receiver-joined',receiver:info})}}return}if(role==='receiver'&&id)send(hostWs,{type:'receiver-signal',receiverId:id,payload:m});else if(role==='host'&&m.receiverId){const r=receivers.get(m.receiverId);send(r?.ws,m.payload)}});ws.on('close',()=>{if(ws===hostWs)hostWs=null;if(id){const r=receivers.get(id);if(r?.ws===ws){r.disconnectedAt=Date.now();log('INFO','Receiver temporarily disconnected; grace period started',r.info);const timer=setTimeout(()=>{const current=receivers.get(id);if(current?.ws===ws&&current.disconnectedAt){receivers.delete(id);if(current.info?.clientId&&receiversByClient.get(current.info.clientId)===id)receiversByClient.delete(current.info.clientId);receiverGraceTimers.delete(id);log('INFO','Receiver removed after reconnect grace period',current.info);event({type:'receivers',receivers:list()});send(hostWs,{type:'receiver-left',receiverId:id})}},10000);receiverGraceTimers.set(id,timer)}}})});server=nextServer;wss=nextWss;await new Promise((res,rej)=>{let settled=false;const onError=err=>{if(settled)return;settled=true;nextServer.removeListener('listening',onListen);log('ERROR','Server listen failed',err.message);rej(err)};const onListen=()=>{if(settled)return;settled=true;nextServer.removeListener('error',onError);log('INFO','Server listening',{address:nextServer.address()});res()};nextServer.once('error',onError);nextServer.once('listening',onListen);nextServer.listen(p,'0.0.0.0')})}
-async function closeWebSockets(){const sockets=[];if(wss){for(const c of wss.clients||[])sockets.push(c);for(const c of sockets){try{c.close(1001,'Server stopping')}catch{}try{if(c.readyState!==WebSocket.CLOSED)c.terminate()}catch{}}await new Promise(resolve=>{let done=false;const finish=()=>{if(!done){done=true;resolve()}};try{wss.close(finish)}catch(e){log('WARN','WebSocket server close failed',e.message);finish()}setTimeout(finish,1000)})}if(hostWs){try{hostWs.close()}catch{}try{hostWs.terminate()}catch{}hostWs=null}}
-async function stop(){log('INFO','Stopping server');for(const t of receiverGraceTimers.values())clearTimeout(t);receiverGraceTimers.clear();for(const r of receivers.values()){try{r.ws.close(4001,'Server stopping')}catch{}try{r.ws.terminate()}catch{}}receivers.clear();receiversByClient.clear();event({type:'receivers',receivers:[]});await closeWebSockets();const s=server;server=null;wss=null;if(s){try{if(typeof s.closeAllConnections==='function')s.closeAllConnections()}catch{}await new Promise(resolve=>{let done=false;const finish=()=>{if(!done){done=true;resolve()}};try{s.close(finish)}catch(e){log('WARN','HTTP server close failed',e.message);finish()}setTimeout(finish,1500)})}log('INFO','Server stopped')}
-async function saveLogs(){const p=logPath();try{fs.mkdirSync(path.dirname(p),{recursive:true});if(!fs.existsSync(p))fs.writeFileSync(p,'');const r=await dialog.showSaveDialog(win,{title:'Сохранить логи LAN Desktop Stream',defaultPath:path.join(app.getPath('documents'),'LAN-Desktop-Stream.log'),filters:[{name:'Log files',extensions:['log']},{name:'Text files',extensions:['txt']}]});if(r.canceled||!r.filePath)return false;fs.copyFileSync(p,r.filePath);return true}catch(e){log('ERROR','Log export failed',e.message);return false}}
-function create(){win=new BrowserWindow({width:1120,height:820,backgroundColor:'#0d1015',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false}});win.loadFile(path.join(__dirname,'..','web','host','index.html'));win.on('close',e=>{if(!forceQuit){e.preventDefault();win.hide()}});win.on('closed',()=>{win=null})}
-function createTray(){const icon=resource('app_icon_monitor.ico');try{tray=new Tray(icon);tray.setToolTip('LAN Desktop Stream');tray.setContextMenu(Menu.buildFromTemplate([{label:'Показать LAN Desktop Stream',click:()=>{if(!win)return;win.show();win.restore();win.focus()}},{label:'Сохранить логи',click:()=>saveLogs()},{type:'separator'},{label:'Выход',click:()=>{forceQuit=true;stop().finally(()=>{tray?.destroy();app.exit(0)})}}]));tray.on('double-click',()=>{win?.show();win?.restore();win?.focus()})}catch(e){log('ERROR','Tray initialization failed',e.message)}}
-app.whenReady().then(async()=>{currentConfig=load();log('INFO','Application started',{version:app.getVersion(),platform:process.platform,arch:process.arch});async function enumerateSources(types){const list=await desktopCapturer.getSources({types,fetchWindowIcons:false});for(const x of list)sourceCache.set(x.id,x);return list}function sourceMeta(x){return{id:x.id,name:x.name,display_id:x.display_id,thumbnail:x.thumbnail?.toDataURL?.()||''}}session.defaultSession.setDisplayMediaRequestHandler(async(_r,cb)=>{try{let source=sourceCache.get(selectedSourceId);if(!source&&selectedSourceDisplayId)source=[...sourceCache.values()].find(x=>String(x.display_id||'')===String(selectedSourceDisplayId));if(!source&&selectedSourceName)source=[...sourceCache.values()].find(x=>x.name===selectedSourceName);if(!source){const s=await enumerateSources(['screen']);source=s[0]}if(!source){log('ERROR','No display source available');return cb({})}log('INFO','Display capture source resolved',{id:source.id,name:source.name,display_id:source.display_id,cached:true});cb({video:source})}catch(e){log('ERROR','Display source resolution failed',e);cb({})}});ipcMain.handle('sources',async()=>{try{const s=await enumerateSources(['screen']);log('INFO','Screen sources enumerated',{count:s.length});return s.map(sourceMeta)}catch(e){log('ERROR','Screen source enumeration failed',e);return[]}});ipcMain.handle('sources-windows',async()=>{try{const s=await enumerateSources(['window']);log('INFO','Window sources enumerated',{count:s.length});return s.map(sourceMeta)}catch(e){log('ERROR','Window source enumeration failed',e);return[]}});ipcMain.handle('config-load',load);ipcMain.handle('config-save',(_e,c)=>{save(c);return true});ipcMain.handle('select-source',async(_e,id)=>{selectedSourceId=String(id||'');const x=sourceCache.get(selectedSourceId);if(x){selectedSourceDisplayId=x.display_id;selectedSourceName=x.name;log('INFO','Source selected',{id:x.id,name:x.name,display_id:x.display_id,cached:true})}else log('WARN','Selected source not in cache',{id:selectedSourceId});return true});ipcMain.handle('start-server',async(_e,c)=>{try{await stop();blockedReceivers.clear();port=Number(c.port);save(c);await startServer(port);const firewallAdded=await addFirewallRule(port);const hostIp=await preferredLanIp();const hostname=os.hostname();const u=`http://${hostIp}:${port}/`;log('INFO','Server started',{url:u,ip:hostIp,hostname,port});return{url:u,ip:hostIp,hostname,port,qr:await QRCode.toDataURL(u),firewallAdded}}catch(e){log('ERROR','Start server failed',e);throw e}});ipcMain.handle('disconnect-receiver',(_e,id)=>{const key=String(id),r=receivers.get(key);if(!r)return false;blockedReceivers.add(String(r.info.clientId));log('INFO','Receiver blocked',{id:key,clientId:r.info.clientId,ip:r.info.ip});try{r.ws.close(4000,'Disconnected by host')}catch{}try{r.ws.terminate()}catch{}receivers.delete(key);if(receiversByClient.get(String(r.info.clientId))===key)receiversByClient.delete(String(r.info.clientId));if(receiverGraceTimers.has(key)){clearTimeout(receiverGraceTimers.get(key));receiverGraceTimers.delete(key)}event({type:'receivers',receivers:list()});send(hostWs,{type:'receiver-left',receiverId:key});return true});ipcMain.handle('client-log',(_e,level,message,data)=>{try{const trace={levelType:typeof level,messageType:typeof message,dataType:typeof data,message:message,data:data};fs.mkdirSync(path.dirname(logPath()),{recursive:true});fs.appendFileSync(logPath(),`[${localTimestamp()}] [MAIN_TRACE] client-log-input ${serializeLogValue(trace)}\n`)}catch(traceError){console.log('[MAIN_TRACE_WRITE_ERROR]',traceError?.message||String(traceError))}log(String(level||'INFO'),String(message||''),data);return true});ipcMain.handle('stop-server',stop);ipcMain.handle('save-logs',saveLogs);ipcMain.handle('log-path',()=>logPath());ipcMain.handle('network-info',async()=>({ip:await preferredLanIp(),hostname:os.hostname(),interfaces:interfaces()}));create();createTray()});app.on('window-all-closed',()=>{});app.on('before-quit',()=>{forceQuit=true;log('INFO','Application quitting')});
+const {
+  app,
+  BrowserWindow,
+  desktopCapturer,
+  session,
+  ipcMain,
+  Tray,
+  Menu,
+  dialog,
+} = require("electron");
+const path = require("node:path"),
+  os = require("node:os");
+const { pathToFileURL } = require("node:url");
+const { interfaces, preferredLanIp, addFirewallRule } = require("./network");
+const QRCode = require("qrcode");
+const { createSignalingServer } = require("./signaling-server");
+const { createNetworkPolicy } = require("./network-policy");
+const { createLogger } = require("./logger");
+const { startRuntimeMonitor } = require("./runtime-monitor");
+let win, tray, activeServer = null, startOperation = null, stopOperation = null, serverInfo = null;
+let selectedSourceId = "", forceQuit = false, quitReady = false, quitting = false;
+let stopRuntimeMonitor = () => {};
+const sourceCache = new Map();
+const resource = (p) => app.isPackaged ? path.join(process.resourcesPath, p) : path.join(__dirname, "..", p);
+const hostFile = path.join(__dirname, "..", "web", "host", "index.html");
+const cfgPath = () => path.join(app.getPath("userData"), "config.json");
+const logPath = () => path.join(app.getPath("userData"), "lan-desktop-stream.log");
+const log = createLogger(logPath);
+const { load, save } = require("./settings").createConfigStore(cfgPath, log);
+function event(message) { if (win && !win.isDestroyed()) win.webContents.send("server-event", message); }
+function start(value) {
+  if (stopOperation) return Promise.reject(new Error("Сервер ещё останавливается"));
+  if (startOperation) return startOperation;
+  if (activeServer) return Promise.resolve(serverInfo);
+  startOperation = (async () => {
+    const c = save(value), ip = await preferredLanIp();
+    const adapter = interfaces().find((x) => x.address === ip);
+    const policy = createNetworkPolicy(ip, adapter?.netmask);
+    const next = createSignalingServer({ policy, pin: c.pin, receiverPath: path.join(__dirname, "..", "web", "receiver"), onEvent: event, log });
+    try {
+      await next.start(c.port);
+      const url = `http://${ip}:${c.port}/`, qr = await QRCode.toDataURL(url);
+      const firewallAdded = await addFirewallRule(c.port, policy, log);
+      activeServer = next;
+      serverInfo = { url, ip, hostname: os.hostname(), port: c.port, qr, firewallAdded, hostToken: next.hostToken };
+      log("INFO", "Server started", { url, netmask: policy.netmask });
+      return serverInfo;
+    } catch (error) { await next.stop(); throw error; }
+  })().finally(() => { startOperation = null; });
+  return startOperation;
+}
+function stop() {
+  if (stopOperation) return stopOperation;
+  stopOperation = (async () => {
+    if (startOperation) await startOperation.catch(() => {});
+    const old = activeServer; activeServer = null; serverInfo = null;
+    if (old) await old.stop();
+    log("INFO", "Server stopped");
+  })().finally(() => { stopOperation = null; });
+  return stopOperation;
+}
+async function saveLogs() {
+  try {
+    const result = await dialog.showSaveDialog(win, { title: "Сохранить логи LAN Desktop Stream", defaultPath: path.join(app.getPath("documents"), "LAN-Desktop-Stream.log"), filters: [{ name: "Log files", extensions: ["log"] }] });
+    if (result.canceled || !result.filePath) return false;
+    await log.exportTo(result.filePath); return true;
+  } catch (error) { log("ERROR", "Log export failed", error); return false; }
+}
+function trusted(e) { return e.sender === win?.webContents && e.senderFrame === win.webContents.mainFrame && e.senderFrame.url === pathToFileURL(hostFile).href; }
+function handle(channel, fn) { ipcMain.handle(channel, (e, ...args) => { if (!trusted(e)) throw new Error("Untrusted IPC sender"); return fn(...args); }); }
+async function enumerateSources(types) {
+  const list = await desktopCapturer.getSources({ types, fetchWindowIcons: false });
+  for (const [id] of sourceCache) if (types.includes(id.startsWith("screen:") ? "screen" : "window")) sourceCache.delete(id);
+  for (const item of list) sourceCache.set(item.id, item);
+  return list;
+}
+const sourceMeta = (x) => ({ id: x.id, name: x.name, display_id: x.display_id, thumbnail: x.thumbnail?.toDataURL?.() || "" });
+function captureResponse(request, source, platform = process.platform) { return { video: source, ...(request.audioRequested && platform === "win32" ? { audio: "loopback" } : {}) }; }
+app.whenReady().then(() => {
+  stopRuntimeMonitor = startRuntimeMonitor(app, log);
+  log("INFO", "Application started", { version: app.getVersion(), platform: process.platform, arch: process.arch });
+  session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+    try {
+      if (request.frame !== win?.webContents.mainFrame || request.frame.url !== pathToFileURL(hostFile).href) return callback({});
+      const id = selectedSourceId;
+      const sources = await enumerateSources([id.startsWith("screen:") ? "screen" : "window"]);
+      const source = sources.find((x) => x.id === id);
+      if (!source) throw new Error("Выбранный источник больше недоступен. Обновите список.");
+      callback(captureResponse(request, source));
+    } catch (error) { log("ERROR", "Display source resolution failed", error); callback({}); }
+  });
+  handle("sources", async () => (await enumerateSources(["screen"])).map(sourceMeta));
+  handle("sources-windows", async () => (await enumerateSources(["window"])).map(sourceMeta));
+  handle("config-load", load);
+  handle("config-save", (c) => { save(c); return true; });
+  handle("select-source", (id) => { if (typeof id !== "string" || !sourceCache.has(id)) throw new Error("Источник не найден"); selectedSourceId = id; return true; });
+  handle("start-server", start);
+  handle("stop-server", stop);
+  handle("disconnect-receiver", (id) => activeServer?.disconnect(String(id)) || false);
+  handle("client-log", (payload) => { if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false; log(payload.level, payload.message, payload.data, "HOST"); return true; });
+  handle("save-logs", saveLogs);
+  handle("log-path", logPath);
+  handle("network-info", async () => ({ ip: await preferredLanIp(), hostname: os.hostname(), interfaces: interfaces() }));
+  win = new BrowserWindow({ width: 1120, height: 820, backgroundColor: "#0d1015", webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  win.webContents.on("will-navigate", (e) => e.preventDefault());
+  win.webContents.on("render-process-gone", () => { stop().catch((error) => log("ERROR", "Renderer crash cleanup failed", error)); });
+  win.loadFile(hostFile);
+  win.on("close", (e) => { if (!forceQuit) { e.preventDefault(); win.hide(); } });
+  win.on("closed", () => { win = null; });
+  try {
+    tray = new Tray(resource("app_icon_monitor.ico")); tray.setToolTip("LAN Desktop Stream");
+    const show = () => { win?.show(); win?.restore(); win?.focus(); };
+    tray.setContextMenu(Menu.buildFromTemplate([{ label: "Показать LAN Desktop Stream", click: show }, { label: "Сохранить логи", click: saveLogs }, { type: "separator" }, { label: "Выход", click: () => app.quit() }]));
+    tray.on("double-click", show);
+  } catch (error) { log("ERROR", "Tray initialization failed", error); }
+}).catch((error) => { log("ERROR", "Application initialization failed", error); app.quit(); });
+app.on("window-all-closed", () => {});
+app.on("before-quit", (e) => {
+  forceQuit = true;
+  if (quitReady) return;
+  e.preventDefault();
+  if (quitting) return;
+  quitting = true; stopRuntimeMonitor(); event({ type: "shutdown" });
+  stop().catch((error) => log("ERROR", "Shutdown cleanup failed", error)).then(async () => {
+    if (win && !win.isDestroyed()) win.destroy();
+    log("INFO", "Application stopped");
+    try { await log.close(); } catch (error) { console.error("Log shutdown failed:", error.message); }
+    quitReady = true; tray?.destroy(); app.quit();
+  });
+});
+process.on("uncaughtException", (error) => { log("ERROR", "uncaughtException", error); app.quit(); });
+process.on("unhandledRejection", (error) => log("ERROR", "unhandledRejection", error));
+module.exports = { captureResponse, log };
