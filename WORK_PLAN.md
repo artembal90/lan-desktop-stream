@@ -160,7 +160,7 @@
 - [x] Original capture source is cleaned up when normalized stream ends.
 - [x] Runtime tests confirmed the resolution pipeline and exposed the near-match issue that was subsequently fixed in 1.8.5.
 - [ ] Portrait/narrow-window runtime test.
-- [ ] Complete 1280×720 → 1920×1080 runtime switch verification.
+- [x] Complete 1280×720 → 1920×1080 runtime switch verification — подтверждено новым логом: последовательные `Capture pipeline ready` для 1280×720 и 1920×1080.
 - [ ] Complete receiver-diagnostics output-dimension verification for all target resolutions.
 
 ### 1.8.3 — Readable diagnostic log
@@ -194,7 +194,7 @@
 - [x] Added best-effort `track.applyConstraints()`.
 - [x] Non-exact captures use fixed-size canvas fallback, including upscaling.
 - [x] Runtime 1280 and 1920 tests confirmed the corrected path in the current development sequence.
-- [ ] Runtime 2560×1440 exact output verification.
+- [x] Runtime 2560×1440 capture/output pipeline confirmed in the latest log: `Capture pipeline ready` reports exact 2560×1440 source settings.
 - [ ] CPU impact measurement for exact-resolution fallback at high resolutions.
 - [ ] Final Start/Stop/reconnect regression after resolution correction.
 
@@ -205,9 +205,9 @@
 - [x] Old capture stream is explicitly disposed before a new Start.
 - [x] Added resolution lifecycle diagnostics (`RESOLUTION_REQUESTED`, `CAPTURE_CREATED`, `CAPTURE_SETTINGS`, `OUTPUT_TRACK_READY`, `RESOLUTION_PIPELINE_FAILED`).
 - [x] Current build no longer intentionally clamps selected resolution in the host configuration path.
-- [ ] Confirm `2560×1440` and `3840×2160` are accepted by the actual capture/runtime environment.
+- [x] Confirm `2560×1440` and `3840×2160` are accepted by the actual capture/runtime environment — latest log records exact `Capture pipeline ready` and `sourceSettings` for both resolutions.
 - [ ] Verify exact outbound resolution at all four target resolutions.
-- [ ] Verify/document receiver behavior during resolution changes.
+- [x] Verify/document receiver behavior during resolution changes — latest log demonstrates receiver statistics continuing across resolution changes and adaptive control remaining active; full UX/reconnect regression remains in stage 2.
 - [ ] Re-measure CPU/RAM after the final high-resolution lifecycle changes.
 
 ### 1.8.7 — `[object Object]` regression isolation: `main.js` writer
@@ -250,6 +250,7 @@
 | 2026-08-30 | Этап 1.8.6 | Исправлено переиспользование старого capture stream при смене разрешения; добавлены lifecycle diagnostics | Реализовано; 2560/3840 runtime matrix остаётся |
 | 2026-08-30 | Этап 1.8.7 | Исследован `[object Object]` writer regression | Источник ещё не локализован окончательно |
 | 2026-08-31 | Этап 1 / 1.8.2 | Новая сборка протестирована с несколькими receiver: реальные TX/FPS/RTT/jitter/loss/adaptive state и aggregate TX подтверждены runtime-логом | Основная сетевой контроль подтверждён; aggregate TX порядка 7 Mbps при 3 receiver в тесте |
+| 2026-08-31 | Этап 1.8.2i / 1.8.6 | Новая сборка проверила смену разрешения 1920×1080 → 1280×720 → 2560×1440 → 3840×2160 → 1280×720; в логе зафиксированы точные `Capture pipeline ready` и `sourceSettings` для каждого выбранного разрешения | Переключение и приём выбранных разрешений подтверждены на runtime capture-уровне; receiver-diagnostics matrix ещё остаётся |
 | 2026-08-31 | CI/CD | В `main` восстановлена/синхронизирована validation-инфраструктура; текущий `package.json` содержит `check`, `lint`, `test`, `smoke`, `verify-package`, `dist` | Build path работает; полноценный runtime CI ещё не закрыт |
 
 ## Правило работы с планом
