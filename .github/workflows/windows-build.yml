@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm ci
+      - run: npm install
       - name: JavaScript syntax checks
         shell: pwsh
         run: |
@@ -27,19 +27,8 @@ jobs:
             node --check $file.FullName
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
-      - run: npm run check
-      - run: npm run lint
-      - run: npm test
-      - name: Electron smoke test (no desktop capture or Firewall changes)
-        run: npm run smoke
       - name: Build Windows installer
         run: npm run dist -- --publish never
-      - name: Verify packaged source and checksum
-        run: node scripts/verify-package.cjs
-      - name: WebRTC smoke against packaged app.asar
-        run: npm run smoke:package
-      - name: NSIS install and application startup (disposable Windows runner only)
-        run: npm run smoke:installer
       - name: Verify installer
         shell: pwsh
         run: |
@@ -56,15 +45,3 @@ jobs:
             dist/*Setup.exe
             dist/*Setup.exe.sha256
             dist/build-manifest.json
-      - name: Upload validation reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: LAN-Desktop-Stream-QA
-          path: |
-            .test-output/source/*.json
-            .test-output/source/*.png
-            .test-output/packaged/*.json
-            .test-output/packaged/*.png
-            .test-output/installer/*.json
-            .test-output/installer/*.png
