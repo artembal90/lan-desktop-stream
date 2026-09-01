@@ -26,7 +26,7 @@ function createSignalingServer({ policy, pin = "", receiverPath, onEvent = () =>
   function remove(id) { const receiver = receivers.get(id); if (!receiver) return; clearTimeout(grace.get(id)); grace.delete(id); receivers.delete(id); byClient.delete(receiver.info.clientId); changed(); send(host, { type: "receiver-left", receiverId: id }); }
   const ex = express();
   ex.disable("x-powered-by");
-  ex.use((req, res, next) => { if (!policy.allows(req.socket.remoteAddress, req.socket.localAddress) || !policy.validHost(req.headers.host, listenPort)) return res.sendStatus(403); res.setHeader("Cache-Control", "no-store"); res.setHeader("X-Content-Type-Options", "nosniff"); res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; media-src 'self' blob:; frame-ancestors 'none'"); next(); });
+  ex.use((req, res, next) => { if (!policy.allows(req.socket.remoteAddress, req.socket.localAddress) || !policy.validHost(req.headers.host, listenPort)) return res.sendStatus(403); res.setHeader("Cache-Control", "no-store"); res.setHeader("X-Content-Type-Options", "nosniff"); res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; media-src 'self' blob:; frame-ancestors *"); next(); });
   ex.use(express.static(receiverPath));
   const server = http.createServer(ex); server.requestTimeout = 10000; server.headersTimeout = 10000; server.maxConnections = 128;
   const wss = new WebSocket.Server({ noServer: true, maxPayload: 128 * 1024, perMessageDeflate: false });
