@@ -41,7 +41,13 @@ function createSignalingServer({ policy, pin = "", receiverPath, onEvent = () =>
       let m; try { m = JSON.parse(raw.toString()); } catch { return reject(4003, "Invalid JSON"); } if (!object(m)) return reject(4003, "Invalid message");
       if (m.type === "join") {
         if (role) return reject(4003, "Already joined");
-        if (m.role === "host") { if (!isLoopback(ip) || !["null", "file://"].includes(req.headers.origin) || !sameSecret(m.token, hostToken) || host) { bucket(ip).failures++; return reject(4003, "Host authentication rejected"); } role = "host"; host = ws; clearTimeout(joinTimer); send(ws, { type: "host-ready" }); for (const r of receivers.values()) send(ws, { type: "receiver-joined", receiver: r.info }); return; }
+        if (m.role === "host") {
+          const localHostOrigin = isLoopback(ip) && ["null", "file://"].includes(req.headers.origin);
+          const tokenValid = sameSecret(m.token, hostToken);
+          if (!localHostOrigin || (m.token != null && !tokenValid) || host) { bucket(ip).failures++; return reject(4003, "Host authentication rejected"); }
+          if (m.token == null) log("WARN", "Host connected without token; local Electron origin accepted", { ip });
+          role = "host"; host = ws; clearTimeout(joinTimer); send(ws, { type: "host-ready" }); for (const r of receivers.values()) send(ws, { type: "receiver-joined", receiver: r.info }); return;
+        }
         if (m.role !== "receiver" || !policy.validReceiverOrigin(req.headers.origin, req.headers.host) || !string(m.clientId, 128) || !/^[a-zA-Z0-9_-]{8,128}$/.test(m.clientId) || !string(m.name, 40) || !string(m.pin, 128)) return reject(4003, "Invalid join");
         if (bucket(ip).failures >= 5 || (pin && !sameSecret(m.pin, pin))) { bucket(ip).failures++; return reject(4003, "Authentication failed", { type: "auth-error", message: "Неверный PIN или слишком много попыток. Повторите через минуту." }); }
         if (blocked.has(m.clientId)) return reject(4000, "Blocked", { type: "kicked", message: "Этот приёмник отключён источником" });
