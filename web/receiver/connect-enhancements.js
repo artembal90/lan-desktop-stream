@@ -19,12 +19,25 @@
   pin?.addEventListener('keydown', submit);
   name?.addEventListener('keydown', submit);
 
-  // The signaling server returns a short-lived resume token. Inject it into every
-  // subsequent receiver join so an automatic recovery reconnect replaces the
-  // existing signaling socket instead of being rejected as a duplicate session.
   const NativeWebSocket = window.WebSocket;
   if (typeof NativeWebSocket === 'function') {
     class ReceiverWebSocket extends NativeWebSocket {
+      constructor(...args) {
+        super(...args);
+        this.addEventListener('message', (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            if (message?.type === 'joined' && typeof message.resumeToken === 'string' && message.resumeToken) {
+              localStorage.setItem(resumeKey, message.resumeToken);
+            } else if (message?.type === 'auth-error' || message?.type === 'kicked') {
+              localStorage.removeItem(resumeKey);
+            }
+          } catch (_) {
+            // Ignore non-JSON signaling messages.
+          }
+        });
+      }
+
       send(data) {
         try {
           const message = JSON.parse(data);
@@ -39,34 +52,6 @@
       }
     }
     window.WebSocket = ReceiverWebSocket;
-  }
-
-  const rememberResumeToken = (event) => {
-    try {
-      const message = JSON.parse(event.data);
-      if (message?.type === 'joined' && typeof message.resumeToken === 'string' && message.resumeToken) {
-        localStorage.setItem(resumeKey, message.resumeToken);
-      }
-      if (message?.type === 'auth-error' || message?.type === 'kicked') {
-        localStorage.removeItem(resumeKey);
-      }
-    } catch (_) {
-      // Ignore non-JSON signaling messages.
-    }
-  };
-
-  // Watch sockets created by app.js and persist the server-issued resume token.
-  if (NativeWebSocket?.prototype?.addEventListener) {
-    const CurrentWebSocket = window.WebSocket;
-    const OriginalCtor = CurrentWebSocket;
-    const WrappedWebSocket = function(...args) {
-      const socket = new OriginalCtor(...args);
-      socket.addEventListener('message', rememberResumeToken);
-      return socket;
-    };
-    WrappedWebSocket.prototype = OriginalCtor.prototype;
-    Object.setPrototypeOf(WrappedWebSocket, OriginalCtor);
-    window.WebSocket = WrappedWebSocket;
   }
 
   const armRecovery = () => {
