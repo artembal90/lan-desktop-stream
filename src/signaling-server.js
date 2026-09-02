@@ -26,11 +26,24 @@ function createSignalingServer({ policy, pin = "", receiverPath, onEvent = () =>
   function remove(id) { const receiver = receivers.get(id); if (!receiver) return; clearTimeout(grace.get(id)); grace.delete(id); receivers.delete(id); byClient.delete(receiver.info.clientId); changed(); send(host, { type: "receiver-left", receiverId: id }); }
   const ex = express();
   ex.disable("x-powered-by");
-  ex.use((req, res, next) => { if (!policy.allows(req.socket.remoteAddress, req.socket.localAddress) || !policy.validHost(req.headers.host, listenPort)) return res.sendStatus(403); res.setHeader("Cache-Control", "no-store"); res.setHeader("X-Content-Type-Options", "nosniff"); res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; media-src 'self' blob:; frame-ancestors *; frame-src *;"); res.setHeader("Cross-Origin-Resource-Policy", "cross-origin"); res.setHeader("Cross-Origin-Opener-Policy", "unsafe-none"); next(); });
+  ex.use((req, res, next) => {
+    if (!policy.allows(req.socket.remoteAddress, req.socket.localAddress) || !policy.validHost(req.headers.host, listenPort)) {
+      log("WARN", "HTTP request rejected", { ip: normalizeIp(req.socket.remoteAddress), method: req.method, url: req.url, host: req.headers.host || "", origin: req.headers.origin || "" });
+      return res.sendStatus(403);
+    }
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    // Intentionally do not send X-Frame-Options, CORP, COEP, COOP or enforcing CSP here.
+    // The receiver page is designed to be embeddable in arbitrary iframes. These headers can
+    // cause Chromium/Chromium-based browsers to surface ERR_BLOCKED_BY_RESPONSE even when the
+    // HTTP request itself succeeds.
+    res.setHeader("Content-Security-Policy", "frame-ancestors *;");
+    next();
+  });
   ex.use(express.static(receiverPath));
   const server = http.createServer(ex); server.requestTimeout = 10000; server.headersTimeout = 10000; server.maxConnections = 128;
   const wss = new WebSocket.Server({ noServer: true, maxPayload: 128 * 1024, perMessageDeflate: false });
-  server.on("upgrade", (req, socket, head) => { const ip = normalizeIp(req.socket.remoteAddress), rate = bucket(ip); const allowedOrigin = policy.validReceiverOrigin(req.headers.origin, req.headers.host) || (isLoopback(ip) && ["null", "file://"].includes(req.headers.origin)); if (stopping || req.url !== "/signal" || !policy.allows(ip, req.socket.localAddress) || !policy.validHost(req.headers.host, listenPort) || !allowedOrigin || ++rate.upgrades > 30 || rate.failures >= 5 || wss.clients.size >= 64) { socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); return; } wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req)); });
+  server.on("upgrade", (req, socket, head) => { const ip = normalizeIp(req.socket.remoteAddress), rate = bucket(ip); const allowedOrigin = policy.validReceiverOrigin(req.headers.origin, req.headers.host) || (isLoopback(ip) && ["null", "file://"].includes(req.headers.origin)); if (stopping || req.url !== "/signal" || !policy.allows(ip, req.socket.localAddress) || !policy.validHost(req.headers.host, listenPort) || !allowedOrigin || ++rate.upgrades > 30 || rate.failures >= 5 || wss.clients.size >= 64) { log("WARN", "WebSocket upgrade rejected", { ip, origin: req.headers.origin || "", host: req.headers.host || "", url: req.url, allowedOrigin }); socket.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); return; } wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req)); });
   wss.on("connection", (ws, req) => {
     const ip = normalizeIp(req.socket.remoteAddress); log("INFO", "WebSocket connection", { ip, origin: req.headers.origin || "", host: req.headers.host || "" }); let role = "", id = null, dead = false, count = 0, since = Date.now();
     const joinTimer = setTimeout(() => reject(4003, "Join timeout"), 5000);
